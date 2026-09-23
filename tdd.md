@@ -1,1661 +1,1314 @@
-# TDD — ACCOUNTING SERVICE OPERATING SYSTEM
-## Thiết kế kỹ thuật theo hướng Domain-Discovery-First cho dịch vụ kế toán thuê ngoài
+# TDD DỄ HIỂU — HỆ THỐNG VẬN HÀNH DỊCH VỤ KẾ TOÁN
+## Viết cho người làm phần mềm nhưng không phải dân kế toán
 
 **Phiên bản:** 1.0  
-**Trạng thái:** Proposed  
-**Đối tượng đọc:** Founder/CTO, Accounting Lead, Product, Backend, Frontend, QA  
-**Khách hàng mục tiêu ban đầu:** Doanh nghiệp dịch vụ nhỏ và rất nhỏ  
-**Nguyên tắc cốt lõi:** Founder không cần biết toàn bộ kế toán trước khi build; hệ thống phải được xây từ workflow thật do Accounting Lead xác nhận.
+**Mục tiêu:** Đọc từ đầu đến cuối là hình dung được hệ thống phải làm gì trước khi nhìn thấy database/API/code.
 
 ---
 
-# 1. Mục tiêu của tài liệu
+# 1. Trước tiên: Chúng ta đang xây cái gì?
 
-Tài liệu này trả lời câu hỏi:
+Không xây MISA mới.
 
-> **Một người mạnh về công nghệ nhưng không phải dân kế toán phải thiết kế và build hệ thống dịch vụ kế toán như thế nào mà không làm sai domain?**
+Không xây phần mềm để khách tự làm kế toán.
 
-Không bắt đầu từ `Database → API → UI → AI`.
+Chúng ta đang mở **công ty dịch vụ kế toán**.
 
-Bắt đầu từ:
+Ví dụ có 100 công ty nhỏ thuê chúng ta làm kế toán hàng tháng.
+
+Vấn đề là:
 
 ```text
-Case thật
-→ Workflow thật
-→ Decision point
-→ Rule
-→ Human review
-→ State transition
-→ Data model
-→ API
-→ Code
+100 khách
+↓
+mỗi khách gửi rất nhiều file
+↓
+kế toán phải nhớ rất nhiều việc
+↓
+thiếu chứng từ
+↓
+nhắn Zalo hỏi khách
+↓
+đối chiếu ngân hàng
+↓
+làm thuế
+↓
+chốt tháng
+↓
+gửi báo cáo
 ```
 
----
+Nếu làm thủ công hoàn toàn:
 
-# 2. Sản phẩm đang xây là gì?
-
-Không xây phần mềm kế toán mới thay thế MISA/FAST ngay từ đầu.
-
-Sản phẩm là:
-
-> **Accounting Service Operating System — hệ thống vận hành dịch vụ kế toán thuê ngoài.**
-
-Nó giúp công ty dịch vụ kế toán:
-
-- tiếp nhận dữ liệu;
-- quản lý chứng từ;
-- hiểu nghiệp vụ;
-- chuẩn bị bút toán;
-- review;
-- đối chiếu;
-- chốt tháng;
-- theo dõi deadline;
-- hỏi khách đúng lúc;
-- quản lý workload;
-- tự động hóa phần việc lặp lại;
-- giữ human accountability.
-
----
-
-# 3. Separation of Responsibility
-
-```mermaid
-flowchart LR
-    A[Case thực tế] --> B[Accounting Lead]
-    B --> C[Workflow + Rule + Exception]
-    C --> D[Founder / Product]
-    D --> E[Technical Model]
-    E --> F[Implementation]
-    F --> G[Accounting UAT]
-    G --> H{Đúng nghiệp vụ?}
-    H -->|Không| B
-    H -->|Có| I[Release]
+```text
+khách tăng
+→ phải tuyển thêm kế toán gần như tuyến tính
 ```
 
-**Accounting Lead chịu trách nhiệm:**
+Hệ thống mình xây có nhiệm vụ:
 
-- xác nhận flow;
-- xác nhận rule;
-- phân loại risk;
-- xác nhận acceptance criteria;
-- test case thật.
-
-**Founder/CTO chịu trách nhiệm:**
-
-- state machine;
-- data model;
-- rule engine;
-- workflow engine;
-- AI orchestration;
-- audit;
-- observability;
-- security;
-- scalability.
+> **Quản toàn bộ công việc đó và tự động hóa những phần máy làm được.**
 
 ---
 
-# 4. Học domain theo case
+# 2. Hãy bỏ kế toán sang một bên một chút
 
-Không học toàn bộ kế toán trước rồi mới code.
+Hình dung nó giống một hệ thống xử lý đơn hàng.
 
-Mỗi feature bắt đầu bằng một case thật.
+Một đơn hàng có:
+
+```text
+nhận đơn
+→ kiểm tra thông tin
+→ thiếu thì hỏi khách
+→ xử lý
+→ kiểm tra
+→ hoàn tất
+```
+
+Dịch vụ kế toán cũng gần như vậy:
+
+```text
+nhận chứng từ/giao dịch
+→ kiểm tra
+→ hiểu nó là gì
+→ thiếu thì hỏi khách
+→ kế toán xử lý
+→ kiểm tra lại
+→ hoàn tất
+```
+
+Đây là mental model quan trọng nhất.
+
+---
+
+# 3. Một khách hàng thực tế
+
+Giả sử:
+
+```text
+Công ty ABC Marketing
+
+10 nhân viên
+1 tài khoản ngân hàng
+30 hóa đơn đầu vào/tháng
+10 hóa đơn đầu ra/tháng
+không có kho
+không sản xuất
+```
+
+ABC thuê chúng ta làm kế toán.
+
+Một tháng của ABC sẽ phát sinh:
+
+```text
+Khách hàng trả tiền cho ABC
+ABC trả tiền nhà cung cấp
+ABC mua laptop
+ABC trả tiền Facebook Ads
+ABC trả tiền AWS
+ABC trả lương
+ABC xuất hóa đơn cho khách
+ABC nhận hóa đơn từ supplier
+```
+
+Cuối tháng, công ty kế toán phải biến đống giao dịch này thành:
+
+```text
+sổ sách đầy đủ
++
+công nợ rõ ràng
++
+ngân hàng khớp
++
+thuế
++
+báo cáo
+```
+
+Đó là toàn bộ bài toán.
+
+---
+
+# 4. Hệ thống phải theo dõi 4 loại đầu vào
+
+Ban đầu chỉ cần hiểu bốn loại này.
+
+```text
+1. HÓA ĐƠN / CHỨNG TỪ
+
+2. GIAO DỊCH NGÂN HÀNG
+
+3. THÔNG TIN TỪ KHÁCH
+
+4. DỮ LIỆU KẾ TOÁN HIỆN CÓ
+```
+
+Không cần phức tạp hơn ở MVP.
+
+---
+
+# 5. Luồng số 1: Khách gửi một hóa đơn
 
 Ví dụ:
 
 ```text
-Khách gửi hóa đơn AWS 22 triệu.
+AWS
+22.000.000 đồng
+Cloud Service
 ```
 
-Cần hỏi Accounting Lead:
+Khách upload file.
 
-1. Nhận được chứng từ thì làm gì đầu tiên?
-2. Kiểm tra các trường nào?
-3. Làm sao biết chứng từ đủ điều kiện xử lý?
-4. Xác định nghiệp vụ thế nào?
-5. Khi nào tự xử lý được?
-6. Khi nào hỏi khách?
-7. Khi nào cần kế toán trưởng?
-8. Output của bước này là gì?
-9. Sau đó có cần đối chiếu ngân hàng không?
-10. Khi nào case được coi là hoàn tất?
-
----
-
-# 5. Scope
-
-## In Scope
+Hệ thống đầu tiên phải làm gì?
 
 ```text
-Document intake
-Accounting case
-Client action
-Review
-Journal draft
-Bank reconciliation
-Month-end closing
-Work queue
-Audit trail
-Basic reporting
-Rule engine
-AI assistance
+Nhận file
+↓
+Lưu file
+↓
+Đọc thông tin trên hóa đơn
+↓
+Kiểm tra xem đã nhận hóa đơn này chưa
+↓
+Đưa cho kế toán xử lý
 ```
 
-## Out of Scope
-
-```text
-Full ERP
-Inventory
-Manufacturing costing
-Full payroll engine
-POS
-Full tax engine
-Multi-country accounting
-Consolidation
-Complex revenue recognition engine
-Generic chatbot
-```
-
----
-
-# 6. Actors
-
-```mermaid
-flowchart TB
-    OWNER[Chủ doanh nghiệp]
-    STAFF[Nhân viên khách]
-    ACC[Kế toán viên]
-    SENIOR[Kế toán trưởng]
-    MANAGER[Quản lý dịch vụ]
-    SYS[Hệ thống]
-
-    OWNER --> SYS
-    STAFF --> SYS
-    ACC --> SYS
-    SENIOR --> SYS
-    MANAGER --> SYS
-```
-
-**Client Owner**: xem status, action, report.  
-**Client Staff**: upload chứng từ, trả lời yêu cầu.  
-**Accountant**: xử lý case, review, reconcile, closing.  
-**Senior Accountant**: high-risk review, closing approval.  
-**Service Manager**: workload, deadline, SLA, capacity.
-
----
-
-# 7. Backbone nghiệp vụ
+Sơ đồ:
 
 ```mermaid
 flowchart LR
-    A[Thu thập dữ liệu] --> B[Hiểu nghiệp vụ]
-    B --> C[Chuẩn bị hạch toán]
-    C --> D[Review]
-    D --> E[Đối chiếu]
-    E --> F[Chốt kỳ]
-    F --> G[Báo cáo]
+    A[Khách upload hóa đơn] --> B[Lưu file gốc]
+    B --> C[Đọc thông tin]
+    C --> D[Kiểm tra trùng]
+    D --> E[Đưa vào danh sách cần xử lý]
 ```
 
-Toàn bộ hệ thống phải phục vụ backbone này.
+Chưa cần AI hạch toán gì ở đây.
 
 ---
 
-# 8. Aggregate trung tâm — AccountingCase
+# 6. Hệ thống đọc gì từ hóa đơn?
 
-`AccountingCase` = một vụ việc kế toán cần xử lý đến khi hoàn tất.
-
-Case type:
+Ví dụ:
 
 ```text
-PURCHASE
-SALE
-BANK_TRANSACTION
-PAYROLL
-REFUND
-MANUAL_ADJUSTMENT
-MISSING_DOCUMENT
-OTHER
+Tên nhà cung cấp: AWS
+Số hóa đơn: INV001
+Ngày: 05/09/2026
+Tiền hàng: 20.000.000
+Thuế: 2.000.000
+Tổng: 22.000.000
+Nội dung: Cloud Service
+```
+
+Nguồn có XML:
+
+```text
+đọc XML bằng code
+```
+
+Chỉ có PDF/ảnh:
+
+```text
+AI đọc giúp
+```
+
+Mục tiêu của bước này chỉ là:
+
+> **Biến file thành dữ liệu có cấu trúc.**
+
+Không ra quyết định kế toán.
+
+---
+
+# 7. Sau khi đọc hóa đơn thì chuyện gì xảy ra?
+
+Kế toán cần trả lời:
+
+> Đây là khoản gì?
+
+Ví dụ:
+
+```text
+AWS
+→ dịch vụ cloud
+→ chi phí CNTT
+```
+
+Nếu tháng trước AWS đã được xử lý rồi:
+
+```text
+Hệ thống biết lịch sử
+↓
+đề xuất giống tháng trước
+```
+
+Nếu chưa từng gặp:
+
+```text
+AI có thể gợi ý
+↓
+kế toán xác nhận
+```
+
+Flow:
+
+```mermaid
+flowchart TD
+    A[Hóa đơn đã đọc] --> B{Nhà cung cấp từng xuất hiện?}
+    B -->|Có| C[Lấy cách xử lý cũ]
+    B -->|Không| D[AI / Rule gợi ý]
+    C --> E[Kế toán kiểm tra]
+    D --> E
+    E --> F[Xác nhận cách hạch toán]
 ```
 
 ---
 
-# 9. State Machine
+# 8. Anh cần hiểu "hạch toán" ở mức nào?
+
+Chỉ cần hiểu:
+
+> Hạch toán = quyết định nghiệp vụ này được ghi vào đâu trong sổ kế toán.
+
+Ví dụ đời thường:
+
+```text
+Mua cloud
+→ chi phí CNTT
+
+Khách chưa trả tiền
+→ công ty còn khoản phải thu
+
+Công ty chưa trả supplier
+→ công ty còn khoản phải trả
+```
+
+Còn cụ thể tài khoản kế toán nào:
+
+```text
+Accounting Lead định nghĩa.
+```
+
+Dev không tự nghĩ.
+
+---
+
+# 9. Bút toán nháp là gì?
+
+Hệ thống không cho AI ghi thẳng vào sổ.
+
+Nó tạo:
+
+```text
+ĐỀ XUẤT HẠCH TOÁN
+```
+
+Ví dụ:
+
+```text
+Hóa đơn AWS 22m
+
+Đề xuất:
+Chi phí Cloud: 22m
+Phải trả AWS: 22m
+```
+
+Kế toán nhìn và bấm:
+
+```text
+Đồng ý
+```
+
+hoặc:
+
+```text
+Sửa
+```
+
+Sau đó mới ghi vào phần mềm kế toán thật.
+
+---
+
+# 10. Luồng hoàn chỉnh của một hóa đơn
 
 ```mermaid
-stateDiagram-v2
-    [*] --> NEW
-    NEW --> DATA_READY
-    DATA_READY --> UNDERSTOOD
-    UNDERSTOOD --> ACCOUNTING_PREPARED
+flowchart TD
+    A[Khách gửi hóa đơn] --> B[Hệ thống lưu file]
+    B --> C[Đọc dữ liệu]
+    C --> D[Kiểm tra trùng]
+    D --> E[Đề xuất loại nghiệp vụ]
+    E --> F[Kế toán kiểm tra]
+    F --> G{Đủ thông tin?}
 
-    ACCOUNTING_PREPARED --> READY
-    ACCOUNTING_PREPARED --> REVIEW_REQUIRED
+    G -->|Không| H[Hỏi khách]
+    H --> I[Khách bổ sung]
+    I --> F
 
-    REVIEW_REQUIRED --> APPROVED
-    REVIEW_REQUIRED --> REJECTED
-    READY --> APPROVED
+    G -->|Có| J[Tạo đề xuất hạch toán]
+    J --> K[Kế toán duyệt]
+    K --> L[Ghi vào MISA/FAST]
+    L --> M[Hoàn tất bước hạch toán]
+```
 
-    APPROVED --> RECORDED
-    RECORDED --> RECONCILED
-    RECONCILED --> CLOSED
+Nếu anh hiểu chart này thì đã hiểu feature đầu tiên.
 
-    DATA_READY --> WAITING_CLIENT
-    UNDERSTOOD --> WAITING_CLIENT
-    ACCOUNTING_PREPARED --> NEED_ACCOUNTANT
-    ACCOUNTING_PREPARED --> NEED_SENIOR
+---
 
-    WAITING_CLIENT --> DATA_READY
-    NEED_ACCOUNTANT --> UNDERSTOOD
-    NEED_SENIOR --> REVIEW_REQUIRED
+# 11. Luồng số 2: Giao dịch ngân hàng
+
+Ví dụ bank:
+
+```text
+05/09  +50m  Công ty XYZ
+06/09  -22m  AWS
+07/09  -18m  Nguyen Van A
+```
+
+Kế toán cần biết mỗi dòng ngân hàng liên quan nghiệp vụ nào.
+
+---
+
+# 12. Match ngân hàng nghĩa là gì?
+
+Ví dụ:
+
+```text
+Bank:
+-22m AWS
+```
+
+Hệ thống đã có:
+
+```text
+Invoice AWS 22m
+```
+
+Vậy:
+
+```text
+Bank AWS 22m
+↔
+Invoice AWS 22m
+```
+
+Có thể match.
+
+Đây gọi là đối chiếu.
+
+---
+
+# 13. Flow đối chiếu ngân hàng
+
+```mermaid
+flowchart TD
+    A[Import sao kê] --> B[Đọc từng giao dịch]
+    B --> C[Tìm hóa đơn/công nợ phù hợp]
+    C --> D{Tìm thấy?}
+
+    D -->|Có| E[Đề xuất match]
+    E --> F[Kế toán xác nhận]
+    F --> G[Đã đối chiếu]
+
+    D -->|Không| H[Đưa vào danh sách chưa rõ]
+```
+
+---
+
+# 14. Giao dịch không rõ thì sao?
+
+Ví dụ:
+
+```text
+07/09
+-18m
+Nguyen Van A
+```
+
+Không invoice.
+
+Không biết là gì.
+
+Kế toán xem cũng không biết.
+
+Lúc này:
+
+```text
+Hỏi khách:
+"Khoản 18 triệu ngày 07/09 là chi gì?"
+```
+
+Khách trả lời:
+
+```text
+"Tiền freelancer thiết kế."
+```
+
+Hệ thống tiếp tục xử lý.
+
+---
+
+# 15. Flow hỏi khách
+
+```mermaid
+flowchart LR
+    A[Không đủ thông tin] --> B[Tạo câu hỏi]
+    B --> C[Khách nhận thông báo]
+    C --> D[Khách trả lời]
+    D --> E[Quay lại cho kế toán]
+    E --> F[Tiếp tục xử lý]
+```
+
+Đây là một feature cực quan trọng.
+
+Không nên dùng Zalo để quản phần này lâu dài.
+
+---
+
+# 16. Portal khách ban đầu chỉ cần làm việc này
+
+Khách login thấy:
+
+```text
+Bạn có 3 việc cần xử lý
+
+1. Giao dịch 18m ngày 07/09 là gì?
+2. Vui lòng upload hợp đồng ABC.
+3. Vui lòng xác nhận bảng lương tháng 09.
+```
+
+Không cần build portal phức tạp.
+
+---
+
+# 17. Luồng số 3: Công nợ phải thu
+
+Ví dụ:
+
+```text
+ABC xuất hóa đơn cho XYZ: 100m
+
+XYZ trả:
+60m
+
+Vậy XYZ còn nợ:
+40m
+```
+
+Hệ thống phải biết:
+
+```text
+Hóa đơn: 100m
+Đã nhận: 60m
+Còn: 40m
+```
+
+Đó là công nợ phải thu.
+
+---
+
+# 18. Luồng công nợ phải thu
+
+```mermaid
+flowchart LR
+    A[Hóa đơn bán hàng] --> B[Tạo khoản phải thu]
+    B --> C[Bank payment]
+    C --> D[Match payment]
+    D --> E[Cập nhật số còn nợ]
+```
+
+Owner có thể xem:
+
+```text
+XYZ còn nợ 40m
+quá hạn 15 ngày
+```
+
+---
+
+# 19. Công nợ phải trả
+
+Ngược lại:
+
+```text
+AWS gửi invoice 22m
+ABC chưa trả
+```
+
+ABC đang nợ AWS:
+
+```text
+22m
+```
+
+Khi bank có:
+
+```text
+-22m AWS
+```
+
+match xong:
+
+```text
+nợ AWS = 0
+```
+
+---
+
+# 20. Luồng số 4: Cuối tháng
+
+Đây là thứ rất quan trọng.
+
+Kế toán không thể cứ nhập xong vài hóa đơn là hoàn tất.
+
+Cuối tháng phải kiểm tra:
+
+```text
+Đủ hóa đơn chưa?
+Ngân hàng khớp chưa?
+Khách còn nợ ai?
+Ai còn nợ khách?
+Lương đã ghi chưa?
+Có giao dịch nào chưa rõ?
+Thuế đã chuẩn bị chưa?
+```
+
+Đó gọi là:
+
+> **Month-End Closing — chốt sổ tháng.**
+
+---
+
+# 21. Closing hiểu đơn giản thế nào?
+
+Closing giống checklist trước khi "khóa" tháng.
+
+```mermaid
+flowchart TD
+    A[Bắt đầu chốt tháng] --> B[Kiểm tra chứng từ]
+    B --> C[Kiểm tra ngân hàng]
+    C --> D[Kiểm tra công nợ phải thu]
+    D --> E[Kiểm tra công nợ phải trả]
+    E --> F[Kiểm tra lương]
+    F --> G[Kiểm tra thuế]
+    G --> H{Còn vấn đề?}
+    H -->|Có| I[Xử lý vấn đề]
+    I --> H
+    H -->|Không| J[Kế toán trưởng review]
+    J --> K[Chốt tháng]
+```
+
+Hệ thống chỉ cần biến checklist này thành workflow.
+
+---
+
+# 22. Màn hình kế toán viên thực sự cần gì?
+
+Không phải dashboard đẹp.
+
+Kế toán login và thấy:
+
+```text
+VIỆC HÔM NAY
+
+ABC
+- 2 hóa đơn cần kiểm tra
+- 1 giao dịch bank chưa rõ
+- đang chờ khách trả lời 1 câu
+
+XYZ
+- closing tháng 09 còn 3 việc
+- 1 hóa đơn cần senior review
+```
+
+Đó là screen quan trọng nhất.
+
+---
+
+# 23. Màn hình quản lý cần gì?
+
+Người quản lý phải biết:
+
+```text
+Có bao nhiêu khách?
+Ai phụ trách ai?
+Khách nào đang trễ?
+Ai đang quá tải?
+Khách nào chờ phản hồi?
+Tháng nào chưa closing?
+```
+
+Ví dụ:
+
+```text
+50 khách active
+
+Kế toán A: 12 khách
+Kế toán B: 18 khách ⚠
+Kế toán C: 10 khách
+
+4 khách có nguy cơ trễ closing
+11 case cần review
+17 case đang chờ khách
+```
+
+---
+
+# 24. Bây giờ mới nói về object trong code
+
+Sau khi hiểu flow trên, hệ thống chỉ cần vài object chính.
+
+## Customer
+
+Doanh nghiệp thuê mình.
+
+## Document
+
+File khách gửi.
+
+## BankTransaction
+
+Một dòng sao kê ngân hàng.
+
+## AccountingWork
+
+Một việc kế toán cần xử lý.
+
+Ví dụ:
+
+```text
+"Hóa đơn AWS cần xử lý"
+```
+
+hoặc:
+
+```text
+"Giao dịch 18m chưa rõ"
+```
+
+## ClientQuestion
+
+Câu hỏi cần khách trả lời.
+
+## Review
+
+Việc kế toán/senior cần duyệt.
+
+## ClosingMonth
+
+Checklist chốt một tháng.
+
+---
+
+# 25. Không cần gọi AccountingCase nếu khó hiểu
+
+Trong code có thể đặt:
+
+```text
+AccountingWork
+```
+
+thay vì:
+
+```text
+AccountingCase
 ```
 
 Ý nghĩa:
 
-```text
-NEW                  vừa tạo
-DATA_READY           có đủ data cơ bản
-UNDERSTOOD           hiểu nghiệp vụ là gì
-ACCOUNTING_PREPARED  có phương án hạch toán nháp
-REVIEW_REQUIRED      cần review
-APPROVED             đã duyệt
-RECORDED             đã ghi nhận vào system of record
-RECONCILED           đã đối chiếu
-CLOSED               hoàn tất
-```
-
----
-
-# 10. Event Model
-
-State chỉ đổi vì event.
-
-```text
-CASE_CREATED
-SOURCE_RECEIVED
-DOCUMENT_PARSED
-DOCUMENT_VALIDATED
-CLASSIFICATION_COMPLETED
-JOURNAL_DRAFT_CREATED
-CLIENT_INFO_REQUESTED
-CLIENT_RESPONDED
-REVIEW_REQUESTED
-REVIEW_APPROVED
-RECORDED
-BANK_MATCHED
-CASE_CLOSED
-```
-
-```mermaid
-flowchart TD
-    E[Event] --> V[Validate Transition]
-    V -->|Invalid| X[Reject]
-    V -->|Valid| A[Apply Business Rule]
-    A --> S[Update State]
-    S --> O[Create Side Effects]
-    O --> AU[Write Audit Event]
-```
-
----
-
-# 11. End-to-End tổng thể
-
-```mermaid
-flowchart TD
-    A[Source Data] --> B[Document / Transaction]
-    B --> C[Accounting Case]
-    C --> D[Parse / Normalize]
-    D --> E[Validate]
-    E --> F{Đủ dữ liệu?}
-
-    F -->|Không| G[Client Action]
-    G --> H[WAITING_CLIENT]
-    H --> I[Client Responds]
-    I --> E
-
-    F -->|Có| J[Understand Business Meaning]
-    J --> K[Rule Engine]
-    K --> L{Rule đủ chắc?}
-
-    L -->|Có| M[Create Journal Draft]
-    L -->|Không| N[AI Suggestion]
-    N --> M
-
-    M --> O[Risk Classification]
-    O --> P{Risk Level}
-
-    P -->|Low| Q[Accountant Review]
-    P -->|Medium| Q
-    P -->|High| R[Senior Review]
-
-    Q --> S[Approve]
-    R --> S
-
-    S --> T[Record / Export]
-    T --> U[Reconcile]
-    U --> V[Closing]
-    V --> W[Report]
-```
-
----
-
-# 12. Use Case 1 — Purchase Invoice
-
-Ví dụ hóa đơn AWS 22 triệu.
-
-```mermaid
-flowchart TD
-    A[Upload Invoice] --> B[Store Original]
-    B --> C[Duplicate Check]
-    C --> D[Extract]
-    D --> E[Validate]
-    E --> F{Valid?}
-
-    F -->|No| G[Need Accountant / Client]
-    F -->|Yes| H[Resolve Supplier]
-    H --> I[Find Historical Mapping]
-    I --> J{Known Mapping?}
-
-    J -->|Yes| K[Create Journal Draft]
-    J -->|No| L[Rule / AI Suggestion]
-    L --> K
-
-    K --> M[Validate Journal]
-    M --> N[Risk Score]
-    N --> O[Review]
-    O --> P[Approve]
-    P --> Q[Record to Accounting System]
-    Q --> R[Wait for Bank Transaction]
-    R --> S[Reconcile]
-    S --> T[Case Closed]
-```
-
----
-
-# 13. Use Case 2 — Unknown Bank Transaction
-
-```mermaid
-flowchart TD
-    A[Import Bank Transaction] --> B[Try Matching]
-    B --> C{Match Found?}
-
-    C -->|Yes| D[Suggest Match]
-    D --> E[Review]
-    E --> F[Confirm]
-    F --> G[Reconciled]
-
-    C -->|No| H[Create Accounting Case]
-    H --> I[Accountant Review]
-    I --> J{Accountant Understands?}
-
-    J -->|Yes| K[Create Journal Draft]
-    J -->|No| L[Create Client Action]
-    L --> M[WAITING_CLIENT]
-    M --> N[Client Responds]
-    N --> K
-
-    K --> O[Review]
-    O --> P[Record]
-    P --> G
-```
-
----
-
-# 14. Use Case 3 — Missing Document
-
-```mermaid
-flowchart TD
-    A[Transaction Detected] --> B[Supporting Document Missing]
-    B --> C[Create Client Action]
-    C --> D[Notify Client]
-    D --> E{Client Uploads?}
-
-    E -->|No| F[Reminder / Escalation]
-    F --> E
-
-    E -->|Yes| G[Link Document]
-    G --> H[Resume Accounting Case]
-```
-
----
-
-# 15. Use Case 4 — Month-End Closing
-
-```mermaid
-flowchart TD
-    A[Start Closing] --> B[Document Completeness]
-    B --> C[Bank Reconciliation]
-    C --> D[AR Review]
-    D --> E[AP Review]
-    E --> F[Payroll Check]
-    F --> G[Revenue Check]
-    G --> H[Expense Check]
-    H --> I[Tax Checklist]
-    I --> J[Exception Review]
-    J --> K{Blocker còn?}
-
-    K -->|Có| L[Resolve Blocker]
-    L --> J
-
-    K -->|Không| M[Senior Review]
-    M --> N[Approve Closing]
-    N --> O[Period Closed]
-```
-
----
-
-# 16. ER Diagram
-
-```mermaid
-erDiagram
-    TENANT ||--o{ TENANT_MEMBERSHIP : has
-    USER ||--o{ TENANT_MEMBERSHIP : joins
-
-    TENANT ||--o{ DOCUMENT : owns
-    DOCUMENT ||--o{ DOCUMENT_VERSION : versions
-    DOCUMENT ||--o| NORMALIZED_DOCUMENT : produces
-
-    TENANT ||--o{ ACCOUNTING_CASE : owns
-    ACCOUNTING_CASE ||--o{ CASE_EVENT : events
-    ACCOUNTING_CASE ||--o{ REVIEW : reviews
-    ACCOUNTING_CASE ||--o{ CLIENT_ACTION : actions
-    ACCOUNTING_CASE ||--o| JOURNAL_DRAFT : prepares
-
-    JOURNAL_DRAFT ||--o{ JOURNAL_DRAFT_LINE : lines
-
-    TENANT ||--o{ PARTY : parties
-    TENANT ||--o{ BANK_ACCOUNT : accounts
-    BANK_ACCOUNT ||--o{ BANK_TRANSACTION : transactions
-    BANK_TRANSACTION ||--o{ RECONCILIATION : reconciliations
-
-    TENANT ||--o{ CLOSING_PERIOD : periods
-    CLOSING_PERIOD ||--o{ CLOSING_TASK : tasks
-
-    TENANT ||--o{ RULE : rules
-    RULE ||--o{ RULE_VERSION : versions
-
-    ACCOUNTING_CASE ||--o{ AI_SUGGESTION : suggestions
-    TENANT ||--o{ AUDIT_EVENT : audit
-```
-
----
-
-# 17. Core Entities
-
-## AccountingCase
-
-```text
-id
-tenant_id
-case_type
-source_type
-source_id
-status
-risk_level
-assigned_to
-period
-priority
-created_at
-updated_at
-```
-
-Index:
-
-```text
-tenant_id + status
-tenant_id + period
-assigned_to + status
-tenant_id + risk_level
-```
-
-## Document
-
-```text
-id
-tenant_id
-document_type
-source
-original_filename
-mime_type
-storage_key
-sha256
-status
-uploaded_by
-uploaded_at
-```
-
-## JournalDraft
-
-```text
-id
-tenant_id
-accounting_case_id
-status
-risk_level
-source
-created_by_type
-created_at
-```
-
-JournalDraftLine:
-
-```text
-account_code
-debit
-credit
-party_id
-description
-project_id
-cost_center
-```
-
----
-
-# 18. Accounting Invariants
-
-Luôn enforce bằng code:
-
-```text
-sum(debit) == sum(credit)
-account tồn tại
-account active
-period open
-amount hợp lệ
-party có nếu bắt buộc
-posted data không bị xóa im lặng
-closed period không sửa bình thường
-```
-
----
-
-# 19. Rule Engine
-
-Rule engine lưu kiến thức chắc chắn.
-
-```yaml
-id: KNOWN_VENDOR_AWS
-version: 1
-
-when:
-  vendor_tax_code: "031..."
-  document_type: PURCHASE_INVOICE
-
-then:
-  category: CLOUD_SERVICE
-  suggested_account: "642"
-  risk: LOW
-```
-
-Rule phải có:
-
-```text
-version
-effective_from
-effective_to
-status
-approved_by
-audit
-```
-
-```mermaid
-flowchart TD
-    A[Case] --> B[Exact Rule]
-    B --> C{Found?}
-    C -->|Yes| D[Apply Rule]
-    C -->|No| E[Historical Mapping]
-    E --> F{Found?}
-    F -->|Yes| G[Use Mapping]
-    F -->|No| H[AI Suggestion]
-    H --> I[Human Review]
-```
-
----
-
-# 20. AI Layer
-
-AI chỉ xử lý ambiguity.
-
-Phù hợp:
-
-```text
-document extraction
-classification
-semantic matching
-anomaly explanation
-client-friendly summary
-```
-
-Không dùng AI cho:
-
-```text
-arithmetic
-permission
-period locking
-unique constraints
-state transition rules
-```
-
-AI output bắt buộc structured:
-
-```json
-{
-  "decision": "CLOUD_SERVICE",
-  "confidence": 0.94,
-  "evidence": [
-    {
-      "field": "description",
-      "value": "AWS infrastructure services"
-    }
-  ]
-}
-```
-
-```mermaid
-flowchart LR
-    A[Input] --> B[Prompt Registry]
-    B --> C[AI Provider]
-    C --> D[Structured Output]
-    D --> E[Schema Validation]
-    E --> F[Business Validation]
-    F --> G[Suggestion]
-    G --> H[Human Review]
-```
-
----
-
-# 21. Risk Engine
-
-Risk inputs:
-
-```text
-amount deviation
-new vendor
-new category
-foreign transaction
-manual journal
-tax-sensitive
-missing document
-related party
-historical correction frequency
-```
-
-```mermaid
-flowchart TD
-    A[Risk Score] --> B{Risk}
-    B -->|LOW| C[Accountant Fast Review]
-    B -->|MEDIUM| D[Accountant Full Review]
-    B -->|HIGH| E[Senior Review]
-    E --> F{Approved?}
-    D --> F
-    C --> F
-```
-
----
-
-# 22. ClientAction
-
-Các loại:
-
-```text
-UPLOAD_DOCUMENT
-CONFIRM_TRANSACTION
-ANSWER_QUESTION
-APPROVE_INFORMATION
-```
-
-Fields:
-
-```text
-id
-tenant_id
-accounting_case_id
-action_type
-question
-status
-due_date
-assigned_client_user
-response
-created_at
-resolved_at
-```
-
----
-
-# 23. Work Queue
-
-Ưu tiên:
-
-```text
-1. Critical overdue
-2. Due today
-3. High-risk review
-4. Closing blocker
-5. Normal tasks
-```
-
-```mermaid
-flowchart TD
-    A[All Open Work] --> B[Priority Engine]
-    B --> C[Critical]
-    B --> D[Due Today]
-    B --> E[High Risk]
-    B --> F[Closing Blocker]
-    B --> G[Normal]
-```
-
----
-
-# 24. Internal Dashboard
-
-Manager cần thấy:
-
-```text
-Active clients
-Open cases
-Waiting client
-Review required
-Closing at risk
-Tax deadlines
-Accountant capacity
-SLA breaches
-```
+> Một đơn vị công việc kế toán.
 
 Ví dụ:
 
 ```text
-50 active clients
-17 waiting client
-11 review required
-4 closing at risk
-
-Accountant A: 12 clients
-Accountant B: 18 clients
-Accountant C: 10 clients
+AccountingWork #001
+type = PURCHASE_INVOICE
+status = WAITING_REVIEW
+customer = ABC
 ```
+
+Tên code phải giúp dev hiểu domain, không phải làm domain trông phức tạp hơn.
 
 ---
 
-# 25. Client Portal
+# 26. Trạng thái AccountingWork
 
-MVP chỉ cần:
-
-```text
-Home
-Documents
-Actions
-Reports
-```
-
-Bên trong hệ thống:
+Chỉ cần bắt đầu bằng 7 trạng thái:
 
 ```text
-VAT validation
-journal draft
-mapping
-reconciliation
-review
+NEW
+PROCESSING
+WAITING_CLIENT
+WAITING_REVIEW
+APPROVED
+DONE
+FAILED
 ```
 
-Khách chỉ thấy:
+Diagram:
 
-```text
-Đã nhận
-Đang xử lý
-Cần bạn xử lý
-Hoàn tất
+```mermaid
+stateDiagram-v2
+    [*] --> NEW
+    NEW --> PROCESSING
+
+    PROCESSING --> WAITING_CLIENT
+    WAITING_CLIENT --> PROCESSING
+
+    PROCESSING --> WAITING_REVIEW
+    WAITING_REVIEW --> APPROVED
+    WAITING_REVIEW --> PROCESSING
+
+    APPROVED --> DONE
+    PROCESSING --> FAILED
 ```
+
+Đơn giản trước.
+
+Không cần 15 states.
 
 ---
 
-# 26. System Architecture
+# 27. Khi nào tạo AccountingWork?
+
+Ví dụ:
+
+```text
+Upload invoice
+→ tạo AccountingWork
+
+Import bank transaction chưa match
+→ tạo AccountingWork
+
+Missing document
+→ tạo AccountingWork
+
+Closing task
+→ tạo AccountingWork
+```
+
+Toàn bộ work queue của kế toán dựa trên object này.
+
+---
+
+# 28. Kiến trúc đơn giản
 
 ```mermaid
 flowchart TB
-    subgraph UI
-        CP[Client Portal]
-        OP[Internal Operations]
-    end
+    CLIENT[Khách hàng]
+    ACCOUNTANT[Kế toán]
+    MANAGER[Quản lý]
 
-    subgraph APP[Modular Monolith]
-        IAM[Identity/Tenant]
-        DOC[Documents]
-        CASE[Accounting Cases]
-        ACC[Accounting]
-        BANK[Banking]
-        REV[Reviews]
-        CA[Client Actions]
-        CLOSE[Closing]
-        RULE[Rules]
-        AI[AI Orchestrator]
-        REPORT[Reporting]
-        AUDIT[Audit]
-    end
+    CLIENT --> WEB[Web App]
+    ACCOUNTANT --> WEB
+    MANAGER --> WEB
 
-    CP --> APP
-    OP --> APP
+    WEB --> API[Backend]
 
-    DOC --> OBJ[(Object Storage)]
-    CASE --> DB[(PostgreSQL)]
-    ACC --> DB
-    BANK --> DB
-    REV --> DB
-    CA --> DB
-    CLOSE --> DB
-    RULE --> DB
-    AI --> DB
-    REPORT --> DB
-    AUDIT --> DB
-
-    AI --> LLM[AI Provider]
-    ACC --> ADAPTER[Accounting Adapter]
-    ADAPTER --> MISA[MISA / FAST / Other]
+    API --> DB[(PostgreSQL)]
+    API --> FILE[(File Storage)]
+    API --> AI[OpenAI API]
+    API --> EXT[MISA / FAST / Excel]
 ```
+
+MVP chỉ vậy.
+
+Không microservice.
+
+Không Kafka.
+
+Không cần workflow engine riêng.
 
 ---
 
-# 27. Tech Stack đề xuất
+# 29. Module backend
+
+Ban đầu:
 
 ```text
-Backend: Java 21 + Spring Boot + Gradle + jOOQ
-Database: PostgreSQL
-Frontend: React / Next.js / TypeScript
-Storage: S3-compatible
-Observability: OpenTelemetry + Prometheus + Grafana
-Async MVP: PostgreSQL Outbox / Job Queue
-Scale later: Kafka/SQS nếu cần
-```
-
----
-
-# 28. Backend Modules
-
-```text
-identity
-tenants
-clients
+customers
 documents
-cases
-parties
-accounting
+accounting-work
 banking
-receivables
-payables
+client-questions
 reviews
-client-actions
 closing
-workflow
-rules
-ai
-reporting
-integrations
+users
 audit
+ai
 ```
+
+Chỉ 9 module.
 
 ---
 
-# 29. Async Processing + Outbox
-
-```mermaid
-sequenceDiagram
-    participant API
-    participant DB
-    participant Worker
-    participant AI
-
-    API->>DB: Save Case + Outbox Event
-    DB-->>API: Commit
-    API-->>API: Return Response
-
-    Worker->>DB: Read Outbox
-    Worker->>AI: Process AI Task
-    AI-->>Worker: Result
-    Worker->>DB: Update Case
-```
-
-Các job chạy async:
+# 30. Database tối thiểu
 
 ```text
-document extraction
-AI calls
-bank matching
-report generation
-anomaly scan
+customers
+
+users
+customer_users
+
+documents
+
+accounting_works
+
+client_questions
+
+reviews
+
+bank_accounts
+bank_transactions
+bank_matches
+
+closing_months
+closing_tasks
+
+audit_logs
 ```
+
+Chưa cần database kế toán đồ sộ.
 
 ---
 
-# 30. API Design
+# 31. AI dùng chính xác ở đâu?
 
-```http
-POST /v1/documents
-GET  /v1/documents/{id}
+## 1. Đọc hóa đơn PDF/ảnh
 
-GET  /v1/accounting-cases/{id}
-GET  /v1/accounting-cases?status=...
-
-GET  /v1/work-items
-
-POST /v1/reviews/{id}/decision
-
-POST /v1/client-actions/{id}/response
-
-POST /v1/closing-periods/{period}/start
-POST /v1/closing-periods/{period}/approve
+```text
+file
+→ AI
+→ JSON
 ```
+
+## 2. Gợi ý loại chi phí
+
+```text
+"AWS Cloud Service"
+→ AI
+→ "cloud/IT expense"
+```
+
+## 3. Gợi ý match
+
+```text
+bank description
++
+invoice
+→ AI/rule
+→ possible match
+```
+
+## 4. Viết câu hỏi dễ hiểu cho khách
+
+## 5. Tóm tắt vấn đề cho owner
+
+Không cho AI tự chốt nghiệp vụ quan trọng.
 
 ---
 
-# 31. Multi-Tenancy
+# 32. Rule và AI khác nhau thế nào?
 
-Mọi business table có:
-
-```text
-tenant_id
-```
-
-Tenant lấy từ authenticated context.
-
-Không tin tenant ID gửi từ frontend.
-
-Bắt buộc test:
+Ví dụ:
 
 ```text
-User tenant A không được đọc/ghi tenant B.
+AWS tháng nào cũng hạch toán giống nhau
 ```
 
----
+Không cần AI.
 
-# 32. Audit Trail
-
-AuditEvent:
+Dùng rule:
 
 ```text
-id
-tenant_id
-actor_type
-actor_id
-event_type
-entity_type
-entity_id
-before_json
-after_json
-reason
-timestamp
+IF vendor = AWS
+THEN category = CLOUD
 ```
 
-Audit bắt buộc cho:
+Nếu:
 
 ```text
-review
-journal changes
-rule changes
-permission changes
-closing
-client response
-AI suggestion
+Vendor mới
+description mơ hồ
 ```
 
----
-
-# 33. Security Baseline
-
-```text
-TLS
-RBAC
-MFA cho internal users
-encrypted object storage
-secret manager
-signed URLs
-audit log
-backups
-rate limiting
-PII access control
-```
-
-Không gửi lên AI:
-
-```text
-password
-bank credential
-API secret
-private key
-authentication token
-```
-
----
-
-# 34. Data Ownership
+AI gợi ý.
 
 Nguyên tắc:
 
-> **Data belongs to customer.**
-
-Phải có:
-
 ```text
-export
-access revoke
-audit
-retention policy
-termination process
+Biết chắc
+→ code/rule
+
+Không chắc
+→ AI
+
+Rủi ro
+→ human
 ```
 
 ---
 
-# 35. System of Record Strategy
+# 33. Luồng đầy đủ của hệ thống
 
-Giai đoạn đầu:
+```mermaid
+flowchart TD
+    A[Dữ liệu đi vào] --> B[Tạo AccountingWork]
+    B --> C[Code đọc dữ liệu]
+    C --> D{Hiểu được?}
 
-```text
-MISA / FAST / Existing System
-=
-System of Record
+    D -->|Có| E[Rule xử lý]
+    D -->|Không| F[AI gợi ý]
+
+    E --> G{Đủ thông tin?}
+    F --> G
+
+    G -->|Không| H[Hỏi khách]
+    H --> I[Khách trả lời]
+    I --> C
+
+    G -->|Có| J[Kế toán review]
+    J --> K{Đúng?}
+
+    K -->|Không| C
+    K -->|Có| L[Hoàn tất nghiệp vụ]
+
+    L --> M[Đối chiếu / Closing]
 ```
 
-Our Platform:
-
-```text
-System of Work
-+
-System of Control
-+
-System of Intelligence
-```
-
-Không rebuild full accounting ledger quá sớm.
+Đây là architecture nghiệp vụ quan trọng nhất.
 
 ---
 
-# 36. Accounting System Adapter
+# 34. API MVP
 
-```java
-interface AccountingSystemAdapter {
+## Upload
 
-    List<Account> fetchAccounts();
-
-    List<Party> fetchParties();
-
-    List<JournalEntry> fetchJournalEntries(
-        AccountingPeriod period
-    );
-
-    SyncResult syncApprovedDraft(
-        JournalDraft draft
-    );
-}
+```http
+POST /documents
 ```
 
-MVP có thể import/export file trước, API integration sau.
+## Work queue
+
+```http
+GET /accounting-works
+```
+
+## Work detail
+
+```http
+GET /accounting-works/{id}
+```
+
+## Ask client
+
+```http
+POST /accounting-works/{id}/questions
+```
+
+## Client answer
+
+```http
+POST /client-questions/{id}/answer
+```
+
+## Review
+
+```http
+POST /accounting-works/{id}/review
+```
+
+## Import bank
+
+```http
+POST /bank-transactions/import
+```
+
+## Closing
+
+```http
+POST /closing-months/{month}/start
+```
+
+Không cần hơn nhiều để bắt đầu.
 
 ---
 
-# 37. Testing Strategy
+# 35. MVP đầu tiên nên làm gì?
 
-## Unit
+Không build toàn bộ TDD.
 
-```text
-rule engine
-state transition
-risk calculation
-journal validation
-```
-
-## Integration
+MVP 1:
 
 ```text
-database
-storage
-external adapters
-AI schema validation
-```
-
-## E2E
-
-```text
-upload
-→ case
-→ classify
-→ draft
-→ review
-→ record
-→ reconcile
-→ close
-```
-
----
-
-# 38. Accounting Acceptance Tests
-
-Mỗi feature phải có acceptance test do Accounting Lead xác nhận.
-
-Ví dụ:
-
-```text
-GIVEN:
-AWS invoice 22m
-
-WHEN:
-system processes invoice
-
-THEN:
-- supplier resolved correctly
-- total validated
-- journal draft created
-- risk LOW
-- accountant review requested
-- source document linked
-```
-
-Không release nếu chỉ pass technical test.
-
----
-
-# 39. Golden Dataset
-
-Case thật đã được senior xác nhận có thể trở thành golden record.
-
-```text
-input
-expected classification
-expected journal
-expected risk
-expected reviewer
-reason
-```
-
-Dùng để regression test rule + AI.
-
----
-
-# 40. Metrics
-
-Technical:
-
-```text
-API p95
-job latency
-AI latency
-AI schema failure
-document processing time
-error rate
-```
-
-Business/Operations:
-
-```text
-human_minutes_per_client
-human_minutes_per_document
-automation_rate
-exception_rate
-review_rate
-closing_duration
-client_response_time
-rework_rate
-clients_per_accountant
-```
-
----
-
-# 41. Definition of Done
-
-Một automation feature chưa Done nếu thiếu:
-
-```text
-[ ] workflow nghiệp vụ được Accounting Lead xác nhận
-[ ] state transition rõ
-[ ] input/output rõ
-[ ] rule rõ
-[ ] exception rõ
-[ ] human fallback
-[ ] audit
-[ ] permission
-[ ] metrics
-[ ] test case thật
-[ ] acceptance test
-```
-
----
-
-# 42. MVP Roadmap
-
-## Phase 0 — Domain Discovery
-
-Chưa code automation.
-
-Làm:
-
-```text
-20–50 case thật
-workflow mapping
-decision table
-exception catalog
-```
-
-Output:
-
-```text
-Domain Playbook
-```
-
-## Phase 1 — Operational Backbone
-
-```text
-Tenant
-User
-Document
-AccountingCase
+Customer
+Document Upload
+AccountingWork
 Work Queue
-ClientAction
+Client Question
 Review
 Audit
 ```
 
-## Phase 2 — Document Intelligence
+Use case duy nhất:
 
 ```text
-XML parsing
-PDF/image extraction
-duplicate check
-normalized document
-classification
+Khách gửi hóa đơn
+→ hệ thống đọc
+→ kế toán review
+→ thiếu thì hỏi khách
+→ done
 ```
 
-## Phase 3 — Accounting Assistance
+Nếu luồng này chưa chạy tốt:
+
+> Không làm bank reconciliation.
+
+---
+
+# 36. MVP 2
+
+Sau khi Invoice Flow ổn:
 
 ```text
-chart of accounts
-party
-rule engine
-historical mapping
-journal draft
-validation
-human review
-```
-
-## Phase 4 — Banking
-
-```text
-bank import
-matching
-reconciliation
-unmatched queue
-```
-
-## Phase 5 — Closing
-
-```text
-closing period
-closing checklist
-blocker
-senior review
-close
-```
-
-## Phase 6 — Client Portal
-
-```text
-Home
-Documents
-Actions
-Reports
+Import bank
+→ match invoice
+→ unmatched queue
+→ hỏi khách
 ```
 
 ---
 
-# 43. Domain Discovery Workshop
+# 37. MVP 3
 
-Mỗi buổi 60–90 phút, chỉ xử lý **một case thật**.
-
-Template:
+Sau khi bank ổn:
 
 ```text
-1. Trigger là gì?
-2. Input là gì?
-3. Accountant làm gì?
-4. Quyết định gì?
-5. Rule nào chắc chắn?
-6. Exception nào hay gặp?
-7. Khi nào hỏi khách?
-8. Khi nào cần senior?
-9. Output là gì?
-10. Khi nào Done?
+Month-End Closing
 ```
 
 ---
 
-# 44. Decision Table
-
-Ví dụ:
-
-| Điều kiện | Kết quả |
-|---|---|
-| Vendor đã biết + amount bình thường + đủ chứng từ | LOW risk |
-| Vendor mới + đủ chứng từ | MEDIUM |
-| Foreign transaction | HIGH |
-| Thiếu hợp đồng bắt buộc | WAITING_CLIENT |
-| Không xác định được nghiệp vụ | NEED_ACCOUNTANT |
-
-Mỗi bảng phải được Accounting Lead approve.
-
----
-
-# 45. Exception Catalog
-
-Exception là first-class concept.
-
-```text
-MISSING_DOCUMENT
-UNKNOWN_PARTY
-UNMATCHED_BANK_TRANSACTION
-DUPLICATE_INVOICE
-INVALID_TOTAL
-CLOSED_PERIOD
-HIGH_AMOUNT_DEVIATION
-FOREIGN_TRANSACTION
-MANUAL_JOURNAL
-```
-
-Mỗi exception có:
-
-```text
-severity
-owner
-resolution_flow
-SLA
-escalation
-```
-
----
-
-# 46. Domain Knowledge Registry
-
-Không để knowledge nằm trong Zalo/chat.
-
-Repo:
-
-```text
-docs/
-└── accounting-domain/
-    ├── purchase-invoice.md
-    ├── sales-invoice.md
-    ├── bank-reconciliation.md
-    ├── closing.md
-    ├── exceptions.md
-    └── decisions/
-```
-
----
-
-# 47. Repository đề xuất
-
-```text
-accounting-os/
-├── apps/
-│   ├── backend/
-│   └── web/
-├── modules/
-│   ├── documents/
-│   ├── cases/
-│   ├── accounting/
-│   ├── banking/
-│   ├── closing/
-│   ├── reviews/
-│   ├── client-actions/
-│   ├── rules/
-│   ├── ai/
-│   └── audit/
-├── docs/
-│   ├── domain/
-│   ├── architecture/
-│   ├── adr/
-│   └── api/
-├── rules/
-├── prompts/
-├── schemas/
-├── evals/
-└── scripts/
-```
-
----
-
-# 48. ADR cần viết
-
-```text
-ADR-001 Modular Monolith
-ADR-002 PostgreSQL
-ADR-003 External System of Record
-ADR-004 Human-in-the-loop
-ADR-005 Rule Before AI
-ADR-006 AccountingCase Aggregate
-ADR-007 Immutable Audit
-ADR-008 Rule Versioning
-```
-
----
-
-# 49. Sequence — Invoice Processing
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Case
-    participant Worker
-    participant Rule
-    participant AI
-    participant Accountant
-
-    Client->>API: Upload invoice
-    API->>Case: Create AccountingCase
-    API-->>Client: Received
-
-    Worker->>Case: Parse + validate
-    Worker->>Rule: Find matching rule
-
-    alt Rule found
-        Rule-->>Worker: Accounting suggestion
-    else No rule
-        Worker->>AI: Request suggestion
-        AI-->>Worker: Structured suggestion
-    end
-
-    Worker->>Case: Create JournalDraft
-    Case->>Accountant: Review task
-    Accountant->>Case: Approve / Correct
-    Case-->>Client: Status updated
-```
-
----
-
-# 50. Sequence — Client Missing Info
-
-```mermaid
-sequenceDiagram
-    participant System
-    participant Accountant
-    participant Client
-    participant Case
-
-    System->>Accountant: Exception detected
-    Accountant->>Case: Confirm missing info
-    Case->>Client: Create action
-    Client->>Case: Submit response
-    Case->>Accountant: Resume work
-    Accountant->>Case: Continue processing
-```
-
----
-
-# 51. Sequence — Closing
-
-```mermaid
-sequenceDiagram
-    participant Manager
-    participant Closing
-    participant Accountant
-    participant Senior
-
-    Manager->>Closing: Start period close
-    Closing->>Accountant: Generate checklist
-    Accountant->>Closing: Complete tasks
-    Closing->>Closing: Validate blockers
-
-    alt Blockers remain
-        Closing-->>Accountant: Resolve blockers
-    else Ready
-        Closing->>Senior: Review
-        Senior->>Closing: Approve
-        Closing->>Closing: Mark CLOSED
-    end
-```
-
----
-
-# 52. Component Diagram
+# 38. Roadmap dễ hiểu
 
 ```mermaid
 flowchart LR
-    UI[Web UI]
-
-    UI --> API[Backend API]
-
-    API --> CASE[Case Module]
-    API --> DOC[Document Module]
-    API --> ACC[Accounting Module]
-    API --> BANK[Banking Module]
-    API --> CLOSE[Closing Module]
-    API --> REVIEW[Review Module]
-    API --> RULE[Rule Module]
-    API --> AI[AI Module]
-
-    DOC --> S3[(Object Storage)]
-    CASE --> PG[(PostgreSQL)]
-    ACC --> PG
-    BANK --> PG
-    CLOSE --> PG
-    REVIEW --> PG
-    RULE --> PG
-    AI --> PG
-
-    AI --> MODEL[AI Provider]
-    ACC --> EXT[Accounting Adapter]
+    A[Invoice Workflow] --> B[Bank Workflow]
+    B --> C[AR/AP]
+    C --> D[Month Closing]
+    D --> E[Client Portal]
+    E --> F[Automation sâu]
 ```
 
 ---
 
-# 53. Deployment Diagram
+# 39. Cách anh làm việc với Accounting Lead
+
+Không hỏi:
+
+> "Em giải thích kế toán cho anh đi."
+
+Hỏi một case cụ thể:
+
+> "Khách gửi hóa đơn Facebook Ads thì từ lúc nhận file đến lúc xong em làm từng bước nào?"
+
+Ghi lại:
+
+```text
+Bước 1
+Bước 2
+Bước 3
+...
+```
+
+Sau đó hỏi:
+
+```text
+Ở bước nào em phải suy nghĩ?
+Ở bước nào lúc nào cũng giống nhau?
+Khi nào phải hỏi khách?
+Khi nào em không dám tự quyết?
+```
+
+Từ câu trả lời:
+
+```text
+lúc nào giống nhau
+→ Rule
+
+cần suy nghĩ nhưng low-risk
+→ AI suggestion
+
+phải hỏi khách
+→ ClientQuestion
+
+không dám tự quyết
+→ Senior Review
+```
+
+Đó chính là product discovery.
+
+---
+
+# 40. Template lấy nghiệp vụ
+
+Mỗi case chỉ cần điền bảng:
+
+| Câu hỏi | Nội dung |
+|---|---|
+| Case là gì? | Ví dụ AWS invoice |
+| Input? | PDF/XML |
+| Bước đầu tiên? | Check hóa đơn |
+| Kiểm tra gì? | ... |
+| Quyết định gì? | ... |
+| Có rule không? | ... |
+| Khi nào hỏi khách? | ... |
+| Khi nào cần senior? | ... |
+| Output? | ... |
+| Khi nào Done? | ... |
+
+Không cần viết UML trước.
+
+---
+
+# 41. Definition of Done của một feature
+
+Ví dụ feature "Purchase Invoice".
+
+Chỉ Done khi:
+
+```text
+Accounting Lead nói flow đúng
++
+có 10 case thật test
++
+developer hiểu input/output
++
+có path khi thiếu dữ liệu
++
+có review
++
+có audit
+```
+
+AI accuracy cao mà workflow sai:
+
+```text
+feature vẫn fail
+```
+
+---
+
+# 42. Thứ anh thực sự cần học
+
+Không cần học kế toán từ A-Z.
+
+Học đúng thứ tự:
+
+```text
+1. Hóa đơn/chứng từ
+2. Thu/chi ngân hàng
+3. Doanh thu/chi phí
+4. Phải thu/phải trả
+5. Hạch toán cơ bản
+6. Đối chiếu
+7. Closing
+8. Tax workflow
+```
+
+Học mỗi phần khi build tới.
+
+---
+
+# 43. Cái gì Accounting Lead phải chịu trách nhiệm?
+
+Accounting Lead quyết định:
+
+```text
+nghiệp vụ này là gì
+cách hạch toán
+rule nào đúng
+risk nào cao
+chứng từ nào bắt buộc
+closing cần check gì
+tax treatment
+```
+
+Anh không tự đoán.
+
+---
+
+# 44. Cái gì anh chịu trách nhiệm?
+
+Anh quyết định:
+
+```text
+workflow model
+state
+database
+API
+permissions
+automation
+AI integration
+audit
+performance
+observability
+UX
+```
+
+Đó đúng sở trường software engineering.
+
+---
+
+# 45. Mental model cuối cùng
+
+Đừng nghĩ:
+
+```text
+"Tôi đang build phần mềm kế toán."
+```
+
+Hãy nghĩ:
+
+> **"Tôi đang build một hệ thống quản lý hàng nghìn công việc kế toán."**
+
+Mỗi việc:
+
+```text
+có input
+có người phụ trách
+có trạng thái
+có decision
+có exception
+có output
+```
+
+Đây là bài toán workflow mà anh đã quen thuộc trong software engineering.
+
+---
+
+# 46. Một câu chốt
+
+Toàn bộ hệ thống ban đầu có thể hiểu bằng một diagram:
 
 ```mermaid
-flowchart TB
-    USER[Users]
-    LB[Load Balancer]
-    WEB[Web App]
-    API[Backend]
-    WORKER[Background Worker]
-    DB[(PostgreSQL)]
-    OBJ[(Object Storage)]
-    AI[AI Provider]
-    EXT[Accounting System]
+flowchart LR
+    A[Khách gửi dữ liệu]
+    --> B[Hệ thống đọc]
+    --> C[Rule / AI gợi ý]
+    --> D[Kế toán kiểm tra]
+    --> E{Thiếu gì?}
 
-    USER --> LB
-    LB --> WEB
-    WEB --> API
-    API --> DB
-    API --> OBJ
-    API --> WORKER
-    WORKER --> DB
-    WORKER --> AI
-    WORKER --> EXT
+    E -->|Có| F[Hỏi khách]
+    F --> D
+
+    E -->|Không| G[Ghi nhận]
+    --> H[Đối chiếu]
+    --> I[Chốt tháng]
+    --> J[Báo cáo]
 ```
 
----
+Nếu anh hiểu diagram này, anh đã có đủ mental model để bắt đầu product discovery.
 
-# 54. Failure Handling
-
-**AI unavailable**
-
-```text
-retry limited
-→ manual review queue
-```
-
-**Integration unavailable**
-
-```text
-store pending sync
-→ retry
-→ alert nếu quá SLA
-```
-
-**Document parsing failed**
-
-```text
-NEED_ACCOUNTANT
-```
-
-Workflow không được chết im lặng.
-
----
-
-# 55. Quy tắc phát triển cuối cùng
-
-Mọi feature mới phải bắt đầu bằng:
-
-```text
-Case thật
-↓
-Accounting Lead giải thích
-↓
-Workflow
-↓
-Decision Table
-↓
-Exception
-↓
-State Machine
-↓
-Acceptance Test
-↓
-Technical Design
-↓
-Code
-```
-
-Không được đảo ngược.
-
----
-
-# 56. Kết luận
-
-Hệ thống có thể được build bởi founder không phải dân kế toán nếu separation of responsibility rõ:
-
-```text
-Accounting Lead
-= định nghĩa đúng nghiệp vụ
-
-Founder/CTO
-= biến nghiệp vụ thành hệ thống
-```
-
-Technical core:
-
-```text
-AccountingCase
-+
-State Machine
-+
-Rule Engine
-+
-Review
-+
-Client Action
-+
-Reconciliation
-+
-Closing
-+
-Audit
-```
-
-AI chỉ là lớp hỗ trợ.
-
-> **Không code kế toán từ trí nhớ. Code workflow đã được domain expert xác nhận.**
+Chi tiết kế toán sẽ được bổ sung từng case một, không phải học hết trước.
