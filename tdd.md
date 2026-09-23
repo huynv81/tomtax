@@ -327,7 +327,9 @@ hoặc:
 Sửa
 ```
 
-Sau đó mới ghi vào phần mềm kế toán thật.
+Sau đó mới ghi nhận chính thức vào **Accounting Core của hệ thống mình**.
+
+Nếu khách có nhu cầu dùng MISA/FAST song song, hệ thống có thể sync/export qua connector riêng. Đây là integration tùy chọn, không phải một bước bắt buộc trong workflow lõi.
 
 ---
 
@@ -348,7 +350,7 @@ flowchart TD
 
     G -->|Có| J[Tạo đề xuất hạch toán]
     J --> K[Kế toán duyệt]
-    K --> L[Ghi vào MISA/FAST]
+    K --> L[Ghi nhận chính thức vào Accounting Core]
     L --> M[Hoàn tất bước hạch toán]
 ```
 
@@ -809,10 +811,17 @@ flowchart TB
     API --> DB[(PostgreSQL)]
     API --> FILE[(File Storage)]
     API --> AI[OpenAI API]
-    API --> EXT[MISA / FAST / Excel]
+    API --> CONNECTOR[Optional Connectors]
+    CONNECTOR --> EXT[MISA / FAST / Excel]
 ```
 
 MVP chỉ vậy.
+
+Điểm quan trọng:
+
+> **Accounting Core + PostgreSQL của mình mới là nền tảng nghiệp vụ chính.**
+
+MISA/FAST/Excel chỉ là connector tùy chọn để import/export hoặc đồng bộ nếu khách cần.
 
 Không microservice.
 
@@ -873,7 +882,97 @@ Chưa cần database kế toán đồ sộ.
 
 ---
 
-# 31. AI dùng chính xác ở đâu?
+# 31. Accounting Core của mình là gì?
+
+Đây là điểm kiến trúc bắt buộc phải hiểu đúng.
+
+Hệ thống của mình phải tự sở hữu tối thiểu các khái niệm kế toán lõi:
+
+```text
+Chart of Accounts
+Journal Entry
+Journal Line
+Accounting Period
+AR
+AP
+Bank Reconciliation
+Closing
+Audit
+```
+
+Nghĩ đơn giản:
+
+```text
+Hóa đơn / giao dịch
+↓
+Kế toán review
+↓
+Accounting Core ghi nhận
+↓
+Đối chiếu
+↓
+Closing
+↓
+Báo cáo
+```
+
+MISA/FAST **không nằm trong luồng bắt buộc này**.
+
+Chúng chỉ xuất hiện ở lớp integration:
+
+```mermaid
+flowchart TB
+    A[Accounting Workflow] --> B[Accounting Core của mình]
+    B --> C[(PostgreSQL)]
+    B --> D[Reporting]
+    B --> E[Optional Integration]
+
+    E --> F[MISA]
+    E --> G[FAST]
+    E --> H[Excel]
+```
+
+Mục tiêu:
+
+> Nếu ngày mai không tích hợp MISA/FAST nữa thì nghiệp vụ lõi của hệ thống vẫn hoạt động.
+
+---
+
+# 32. Khi nào mới cần MISA/FAST?
+
+Chỉ khi có nhu cầu thực tế như:
+
+```text
+- khách đang dùng MISA;
+- cần migrate dữ liệu;
+- cần export dữ liệu;
+- cần đồng bộ sổ;
+- cần giai đoạn chuyển tiếp.
+```
+
+Không được thiết kế:
+
+```text
+Approve
+→ MISA
+```
+
+Mà phải là:
+
+```text
+Approve
+→ Accounting Core
+→ Optional Connector
+   ├── MISA
+   ├── FAST
+   └── Excel
+```
+
+Connector có thể fail nhưng Accounting Core không được fail theo.
+
+---
+
+# 33. AI dùng chính xác ở đâu?
 
 ## 1. Đọc hóa đơn PDF/ảnh
 
@@ -909,7 +1008,7 @@ Không cho AI tự chốt nghiệp vụ quan trọng.
 
 ---
 
-# 32. Rule và AI khác nhau thế nào?
+# 34. Rule và AI khác nhau thế nào?
 
 Ví dụ:
 
@@ -950,7 +1049,7 @@ Rủi ro
 
 ---
 
-# 33. Luồng đầy đủ của hệ thống
+# 35. Luồng đầy đủ của hệ thống
 
 ```mermaid
 flowchart TD
@@ -981,7 +1080,7 @@ flowchart TD
 
 ---
 
-# 34. API MVP
+# 36. API MVP
 
 ## Upload
 
@@ -1035,7 +1134,7 @@ Không cần hơn nhiều để bắt đầu.
 
 ---
 
-# 35. MVP đầu tiên nên làm gì?
+# 37. MVP đầu tiên nên làm gì?
 
 Không build toàn bộ TDD.
 
@@ -1067,7 +1166,7 @@ Nếu luồng này chưa chạy tốt:
 
 ---
 
-# 36. MVP 2
+# 38. MVP 2
 
 Sau khi Invoice Flow ổn:
 
@@ -1080,7 +1179,7 @@ Import bank
 
 ---
 
-# 37. MVP 3
+# 39. MVP 3
 
 Sau khi bank ổn:
 
@@ -1090,7 +1189,7 @@ Month-End Closing
 
 ---
 
-# 38. Roadmap dễ hiểu
+# 40. Roadmap dễ hiểu
 
 ```mermaid
 flowchart LR
@@ -1103,7 +1202,7 @@ flowchart LR
 
 ---
 
-# 39. Cách anh làm việc với Accounting Lead
+# 41. Cách anh làm việc với Accounting Lead
 
 Không hỏi:
 
@@ -1151,7 +1250,7 @@ không dám tự quyết
 
 ---
 
-# 40. Template lấy nghiệp vụ
+# 42. Template lấy nghiệp vụ
 
 Mỗi case chỉ cần điền bảng:
 
@@ -1172,7 +1271,7 @@ Không cần viết UML trước.
 
 ---
 
-# 41. Definition of Done của một feature
+# 43. Definition of Done của một feature
 
 Ví dụ feature "Purchase Invoice".
 
@@ -1200,7 +1299,7 @@ feature vẫn fail
 
 ---
 
-# 42. Thứ anh thực sự cần học
+# 44. Thứ anh thực sự cần học
 
 Không cần học kế toán từ A-Z.
 
@@ -1221,7 +1320,7 @@ Học mỗi phần khi build tới.
 
 ---
 
-# 43. Cái gì Accounting Lead phải chịu trách nhiệm?
+# 45. Cái gì Accounting Lead phải chịu trách nhiệm?
 
 Accounting Lead quyết định:
 
@@ -1239,7 +1338,7 @@ Anh không tự đoán.
 
 ---
 
-# 44. Cái gì anh chịu trách nhiệm?
+# 46. Cái gì anh chịu trách nhiệm?
 
 Anh quyết định:
 
@@ -1261,7 +1360,7 @@ UX
 
 ---
 
-# 45. Mental model cuối cùng
+# 47. Mental model cuối cùng
 
 Đừng nghĩ:
 
@@ -1288,7 +1387,7 @@ có output
 
 ---
 
-# 46. Một câu chốt
+# 48. Một câu chốt
 
 Toàn bộ hệ thống ban đầu có thể hiểu bằng một diagram:
 
