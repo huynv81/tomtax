@@ -1,476 +1,513 @@
-# TECHNICAL DESIGN DOCUMENT
-# AI-First Accounting Operations Platform
-## Narrow Market Entry, Broad Accounting Core
+# TDD — ACCOUNTING SERVICE OPERATING SYSTEM
+## Thiết kế kỹ thuật theo hướng Domain-Discovery-First cho dịch vụ kế toán thuê ngoài
 
-> **Version:** 1.0  
-> **Status:** Proposed Architecture  
-> **Primary Market:** Doanh nghiệp dịch vụ nhỏ và rất nhỏ  
-> **Core Principle:** Narrow market entry, broad accounting core  
-> **Primary Goal:** Xây nền tảng vận hành dịch vụ kế toán thuê ngoài có khả năng tự động hóa sâu, kiểm soát tốt và mở rộng sang nhiều loại hình doanh nghiệp mà không phải thiết kế lại core.
+**Phiên bản:** 1.0  
+**Trạng thái:** Proposed  
+**Đối tượng đọc:** Founder/CTO, Accounting Lead, Product, Backend, Frontend, QA  
+**Khách hàng mục tiêu ban đầu:** Doanh nghiệp dịch vụ nhỏ và rất nhỏ  
+**Nguyên tắc cốt lõi:** Founder không cần biết toàn bộ kế toán trước khi build; hệ thống phải được xây từ workflow thật do Accounting Lead xác nhận.
 
 ---
 
-# 1. Executive Summary
+# 1. Mục tiêu của tài liệu
 
-Hệ thống được xây dựng để hỗ trợ một mô hình kinh doanh:
+Tài liệu này trả lời câu hỏi:
 
-> **Phòng kế toán thuê ngoài cho doanh nghiệp nhỏ, trong đó phần lớn công việc lặp lại được hệ thống và AI chuẩn bị; kế toán viên tập trung review, xử lý ngoại lệ và chịu trách nhiệm nghiệp vụ.**
+> **Một người mạnh về công nghệ nhưng không phải dân kế toán phải thiết kế và build hệ thống dịch vụ kế toán như thế nào mà không làm sai domain?**
 
-Đối tượng khách hàng ban đầu là:
+Không bắt đầu từ `Database → API → UI → AI`.
 
-- doanh nghiệp dịch vụ 1–20 nhân sự;
-- 10–200 chứng từ/tháng;
-- 1–3 tài khoản ngân hàng;
-- nghiệp vụ kế toán tương đối đơn giản;
-- không sản xuất;
-- không inventory/costing phức tạp;
-- không consolidation nhiều pháp nhân.
-
-Tuy nhiên, accounting domain không được hard-code theo một ngành cụ thể.
-
-Kiến trúc phải đảm bảo:
+Bắt đầu từ:
 
 ```text
-Market entry:
-Service Businesses
-
-Accounting Core:
-Generic
-
-Industry-specific behavior:
-Configuration / Rules / Extensions
-```
-
-Hệ thống không cố thay thế MISA/FAST ngay từ đầu.
-
-Chiến lược kỹ thuật:
-
-```text
-Our Platform
-=
-System of Work
-+
-System of Control
-+
-System of Intelligence
-
-MISA / FAST / Existing Accounting System
-=
-System of Record
+Case thật
+→ Workflow thật
+→ Decision point
+→ Rule
+→ Human review
+→ State transition
+→ Data model
+→ API
+→ Code
 ```
 
 ---
 
-# 2. Mục tiêu hệ thống
+# 2. Sản phẩm đang xây là gì?
 
-## 2.1. Business Goals
+Không xây phần mềm kế toán mới thay thế MISA/FAST ngay từ đầu.
 
-Hệ thống phải giúp công ty dịch vụ kế toán:
+Sản phẩm là:
 
-1. giảm thời gian xử lý trên mỗi khách hàng;
-2. giảm thao tác nhập liệu thủ công;
-3. phát hiện thiếu chứng từ sớm;
-4. tự động hóa bank reconciliation;
-5. chuẩn hóa quy trình closing;
-6. giảm phụ thuộc vào từng kế toán viên;
-7. cho khách hàng biết trạng thái công việc theo thời gian thực;
-8. hỗ trợ kế toán xử lý exception thay vì kiểm tra tất cả giao dịch;
-9. tạo nền tảng để sau này phát triển Finance Control và Virtual CFO;
-10. tích lũy dữ liệu, rule và correction thành intellectual property.
+> **Accounting Service Operating System — hệ thống vận hành dịch vụ kế toán thuê ngoài.**
 
----
+Nó giúp công ty dịch vụ kế toán:
 
-## 2.2. Technical Goals
-
-Hệ thống cần:
-
-- multi-tenant;
-- audit được toàn bộ thay đổi;
-- configurable theo từng khách hàng;
-- có accounting core tổng quát;
-- hỗ trợ AI nhưng không phụ thuộc AI;
-- có human-in-the-loop;
-- deterministic với những nghiệp vụ có rule rõ ràng;
-- idempotent khi ingest dữ liệu;
-- có khả năng tích hợp nhiều accounting system;
-- có khả năng chạy batch/async;
-- quan sát được cost, latency, error và AI quality.
+- tiếp nhận dữ liệu;
+- quản lý chứng từ;
+- hiểu nghiệp vụ;
+- chuẩn bị bút toán;
+- review;
+- đối chiếu;
+- chốt tháng;
+- theo dõi deadline;
+- hỏi khách đúng lúc;
+- quản lý workload;
+- tự động hóa phần việc lặp lại;
+- giữ human accountability.
 
 ---
 
-# 3. Non-Goals — Những gì không làm trong MVP
-
-MVP không nhằm:
-
-- thay thế hoàn toàn MISA/FAST;
-- xây ERP;
-- xây payroll engine hoàn chỉnh;
-- inventory management;
-- manufacturing costing;
-- POS;
-- CRM;
-- payment gateway;
-- banking core;
-- tự train OCR model;
-- tự train LLM;
-- microservices ngay từ đầu;
-- autonomous tax filing;
-- autonomous accounting posting không có kiểm soát.
-
----
-
-# 4. Product Principles
-
-## 4.1. Narrow Market Entry, Broad Core
-
-Khách hàng ban đầu:
-
-```text
-Service company nhỏ
-```
-
-nhưng accounting core gồm:
-
-```text
-Documents
-Invoices
-Bank
-AR
-AP
-Expenses
-Revenue
-Payroll Input
-Journal
-Closing
-Tax Checklist
-Reporting
-```
-
-Các vertical khác nhau chỉ thêm:
-
-```text
-Rules
-Templates
-Dimensions
-Workflow
-Reports
-```
-
----
-
-## 4.2. AI Handles Ambiguity
-
-AI phù hợp với:
-
-```text
-document understanding
-classification
-matching support
-natural-language explanation
-anomaly reasoning
-```
-
-Không dùng AI cho:
-
-```text
-arithmetic
-duplicate uniqueness
-ledger balance
-account validity
-period locking
-permission enforcement
-```
-
----
-
-## 4.3. Human Owns Accountability
-
-AI có thể:
-
-```text
-READ
-EXTRACT
-CLASSIFY
-SUGGEST
-EXPLAIN
-FLAG
-```
-
-AI không được mặc định:
-
-```text
-FINAL APPROVE
-SUBMIT TAX
-DELETE POSTED JOURNAL
-TRANSFER MONEY
-CHANGE CLOSED PERIOD
-```
-
----
-
-## 4.4. Evidence First
-
-Mọi AI suggestion cần có:
-
-```text
-decision
-confidence
-evidence
-rule references
-source document references
-```
-
-Không có evidence:
-
-```text
-suggestion = invalid
-```
-
----
-
-# 5. High-Level Architecture
-
-```mermaid
-flowchart TB
-    Client[Client Portal]
-    Accountant[Accountant Workspace]
-    Admin[Internal Admin]
-
-    Client --> API
-    Accountant --> API
-    Admin --> API
-
-    API[Backend Application]
-
-    API --> IAM[Identity & Tenant]
-    API --> DOC[Document Module]
-    API --> ACC[Accounting Core]
-    API --> BANK[Banking & Reconciliation]
-    API --> WF[Workflow & Tasks]
-    API --> TAX[Tax Checklist]
-    API --> REPORT[Reporting]
-    API --> AI[AI Orchestrator]
-    API --> AUDIT[Audit]
-
-    DOC --> OBJ[(Object Storage)]
-    ACC --> DB[(PostgreSQL)]
-    BANK --> DB
-    WF --> DB
-    TAX --> DB
-    REPORT --> DB
-    AI --> DB
-    AUDIT --> DB
-
-    AI --> OAI[LLM / Vision Provider]
-    AI --> RULE[Rule Engine]
-
-    ACC --> EXT[Accounting System Adapter]
-    BANK --> BANKEXT[Bank Import / Adapter]
-
-    EXT --> MISA[MISA / FAST / Other]
-```
-
----
-
-# 6. Architecture Style
-
-## 6.1. MVP: Modular Monolith
-
-Không dùng microservices trong giai đoạn đầu.
-
-Lý do:
-
-- team nhỏ;
-- domain còn thay đổi;
-- cần transaction đơn giản;
-- cần debug nhanh;
-- giảm DevOps complexity;
-- tránh distributed transaction;
-- tránh premature scaling.
-
-Đề xuất:
-
-```text
-accounting-platform/
-├── identity
-├── tenants
-├── documents
-├── parties
-├── banking
-├── accounting
-├── receivables
-├── payables
-├── closing
-├── tax
-├── workflow
-├── ai
-├── rules
-├── reporting
-├── integrations
-└── audit
-```
-
-Các module giao tiếp qua interface/domain events nội bộ.
-
----
-
-# 7. Suggested Technology Stack
-
-## Backend
-
-```text
-Java 21
-Spring Boot
-Gradle
-jOOQ
-```
-
-## Database
-
-```text
-PostgreSQL
-```
-
-## Frontend
-
-```text
-React / Next.js
-TypeScript
-```
-
-## Object Storage
-
-```text
-S3 compatible
-```
-
-## Async Jobs
-
-MVP:
-
-```text
-PostgreSQL job/outbox queue
-```
-
-Khi scale:
-
-```text
-Kafka / SQS
-```
-
-## AI
-
-```text
-OpenAI API hoặc provider abstraction
-```
-
-## Observability
-
-```text
-OpenTelemetry
-Prometheus
-Grafana
-Centralized logs
-```
-
----
-
-# 8. Domain Model Overview
+# 3. Separation of Responsibility
 
 ```mermaid
 flowchart LR
-    Tenant --> User
-    Tenant --> ClientCompany
-    ClientCompany --> Party
-    ClientCompany --> Document
-    ClientCompany --> BankAccount
-    BankAccount --> BankTransaction
+    A[Case thực tế] --> B[Accounting Lead]
+    B --> C[Workflow + Rule + Exception]
+    C --> D[Founder / Product]
+    D --> E[Technical Model]
+    E --> F[Implementation]
+    F --> G[Accounting UAT]
+    G --> H{Đúng nghiệp vụ?}
+    H -->|Không| B
+    H -->|Có| I[Release]
+```
 
-    Document --> AccountingDocument
-    AccountingDocument --> JournalDraft
-    JournalDraft --> JournalEntry
+**Accounting Lead chịu trách nhiệm:**
 
-    Party --> AR
-    Party --> AP
+- xác nhận flow;
+- xác nhận rule;
+- phân loại risk;
+- xác nhận acceptance criteria;
+- test case thật.
 
-    BankTransaction --> Reconciliation
+**Founder/CTO chịu trách nhiệm:**
 
-    JournalEntry --> ClosingPeriod
+- state machine;
+- data model;
+- rule engine;
+- workflow engine;
+- AI orchestration;
+- audit;
+- observability;
+- security;
+- scalability.
 
-    ClientCompany --> Workflow
-    Workflow --> Task
+---
 
-    Document --> AISuggestion
-    JournalDraft --> AISuggestion
-    AISuggestion --> Review
+# 4. Học domain theo case
 
-    Review --> AuditEvent
+Không học toàn bộ kế toán trước rồi mới code.
+
+Mỗi feature bắt đầu bằng một case thật.
+
+Ví dụ:
+
+```text
+Khách gửi hóa đơn AWS 22 triệu.
+```
+
+Cần hỏi Accounting Lead:
+
+1. Nhận được chứng từ thì làm gì đầu tiên?
+2. Kiểm tra các trường nào?
+3. Làm sao biết chứng từ đủ điều kiện xử lý?
+4. Xác định nghiệp vụ thế nào?
+5. Khi nào tự xử lý được?
+6. Khi nào hỏi khách?
+7. Khi nào cần kế toán trưởng?
+8. Output của bước này là gì?
+9. Sau đó có cần đối chiếu ngân hàng không?
+10. Khi nào case được coi là hoàn tất?
+
+---
+
+# 5. Scope
+
+## In Scope
+
+```text
+Document intake
+Accounting case
+Client action
+Review
+Journal draft
+Bank reconciliation
+Month-end closing
+Work queue
+Audit trail
+Basic reporting
+Rule engine
+AI assistance
+```
+
+## Out of Scope
+
+```text
+Full ERP
+Inventory
+Manufacturing costing
+Full payroll engine
+POS
+Full tax engine
+Multi-country accounting
+Consolidation
+Complex revenue recognition engine
+Generic chatbot
 ```
 
 ---
 
-# 9. Core Entities
+# 6. Actors
 
-## 9.1. Tenant
+```mermaid
+flowchart TB
+    OWNER[Chủ doanh nghiệp]
+    STAFF[Nhân viên khách]
+    ACC[Kế toán viên]
+    SENIOR[Kế toán trưởng]
+    MANAGER[Quản lý dịch vụ]
+    SYS[Hệ thống]
 
-Đại diện khách hàng/pháp nhân.
+    OWNER --> SYS
+    STAFF --> SYS
+    ACC --> SYS
+    SENIOR --> SYS
+    MANAGER --> SYS
+```
 
-Fields:
+**Client Owner**: xem status, action, report.  
+**Client Staff**: upload chứng từ, trả lời yêu cầu.  
+**Accountant**: xử lý case, review, reconcile, closing.  
+**Senior Accountant**: high-risk review, closing approval.  
+**Service Manager**: workload, deadline, SLA, capacity.
+
+---
+
+# 7. Backbone nghiệp vụ
+
+```mermaid
+flowchart LR
+    A[Thu thập dữ liệu] --> B[Hiểu nghiệp vụ]
+    B --> C[Chuẩn bị hạch toán]
+    C --> D[Review]
+    D --> E[Đối chiếu]
+    E --> F[Chốt kỳ]
+    F --> G[Báo cáo]
+```
+
+Toàn bộ hệ thống phải phục vụ backbone này.
+
+---
+
+# 8. Aggregate trung tâm — AccountingCase
+
+`AccountingCase` = một vụ việc kế toán cần xử lý đến khi hoàn tất.
+
+Case type:
+
+```text
+PURCHASE
+SALE
+BANK_TRANSACTION
+PAYROLL
+REFUND
+MANUAL_ADJUSTMENT
+MISSING_DOCUMENT
+OTHER
+```
+
+---
+
+# 9. State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> NEW
+    NEW --> DATA_READY
+    DATA_READY --> UNDERSTOOD
+    UNDERSTOOD --> ACCOUNTING_PREPARED
+
+    ACCOUNTING_PREPARED --> READY
+    ACCOUNTING_PREPARED --> REVIEW_REQUIRED
+
+    REVIEW_REQUIRED --> APPROVED
+    REVIEW_REQUIRED --> REJECTED
+    READY --> APPROVED
+
+    APPROVED --> RECORDED
+    RECORDED --> RECONCILED
+    RECONCILED --> CLOSED
+
+    DATA_READY --> WAITING_CLIENT
+    UNDERSTOOD --> WAITING_CLIENT
+    ACCOUNTING_PREPARED --> NEED_ACCOUNTANT
+    ACCOUNTING_PREPARED --> NEED_SENIOR
+
+    WAITING_CLIENT --> DATA_READY
+    NEED_ACCOUNTANT --> UNDERSTOOD
+    NEED_SENIOR --> REVIEW_REQUIRED
+```
+
+Ý nghĩa:
+
+```text
+NEW                  vừa tạo
+DATA_READY           có đủ data cơ bản
+UNDERSTOOD           hiểu nghiệp vụ là gì
+ACCOUNTING_PREPARED  có phương án hạch toán nháp
+REVIEW_REQUIRED      cần review
+APPROVED             đã duyệt
+RECORDED             đã ghi nhận vào system of record
+RECONCILED           đã đối chiếu
+CLOSED               hoàn tất
+```
+
+---
+
+# 10. Event Model
+
+State chỉ đổi vì event.
+
+```text
+CASE_CREATED
+SOURCE_RECEIVED
+DOCUMENT_PARSED
+DOCUMENT_VALIDATED
+CLASSIFICATION_COMPLETED
+JOURNAL_DRAFT_CREATED
+CLIENT_INFO_REQUESTED
+CLIENT_RESPONDED
+REVIEW_REQUESTED
+REVIEW_APPROVED
+RECORDED
+BANK_MATCHED
+CASE_CLOSED
+```
+
+```mermaid
+flowchart TD
+    E[Event] --> V[Validate Transition]
+    V -->|Invalid| X[Reject]
+    V -->|Valid| A[Apply Business Rule]
+    A --> S[Update State]
+    S --> O[Create Side Effects]
+    O --> AU[Write Audit Event]
+```
+
+---
+
+# 11. End-to-End tổng thể
+
+```mermaid
+flowchart TD
+    A[Source Data] --> B[Document / Transaction]
+    B --> C[Accounting Case]
+    C --> D[Parse / Normalize]
+    D --> E[Validate]
+    E --> F{Đủ dữ liệu?}
+
+    F -->|Không| G[Client Action]
+    G --> H[WAITING_CLIENT]
+    H --> I[Client Responds]
+    I --> E
+
+    F -->|Có| J[Understand Business Meaning]
+    J --> K[Rule Engine]
+    K --> L{Rule đủ chắc?}
+
+    L -->|Có| M[Create Journal Draft]
+    L -->|Không| N[AI Suggestion]
+    N --> M
+
+    M --> O[Risk Classification]
+    O --> P{Risk Level}
+
+    P -->|Low| Q[Accountant Review]
+    P -->|Medium| Q
+    P -->|High| R[Senior Review]
+
+    Q --> S[Approve]
+    R --> S
+
+    S --> T[Record / Export]
+    T --> U[Reconcile]
+    U --> V[Closing]
+    V --> W[Report]
+```
+
+---
+
+# 12. Use Case 1 — Purchase Invoice
+
+Ví dụ hóa đơn AWS 22 triệu.
+
+```mermaid
+flowchart TD
+    A[Upload Invoice] --> B[Store Original]
+    B --> C[Duplicate Check]
+    C --> D[Extract]
+    D --> E[Validate]
+    E --> F{Valid?}
+
+    F -->|No| G[Need Accountant / Client]
+    F -->|Yes| H[Resolve Supplier]
+    H --> I[Find Historical Mapping]
+    I --> J{Known Mapping?}
+
+    J -->|Yes| K[Create Journal Draft]
+    J -->|No| L[Rule / AI Suggestion]
+    L --> K
+
+    K --> M[Validate Journal]
+    M --> N[Risk Score]
+    N --> O[Review]
+    O --> P[Approve]
+    P --> Q[Record to Accounting System]
+    Q --> R[Wait for Bank Transaction]
+    R --> S[Reconcile]
+    S --> T[Case Closed]
+```
+
+---
+
+# 13. Use Case 2 — Unknown Bank Transaction
+
+```mermaid
+flowchart TD
+    A[Import Bank Transaction] --> B[Try Matching]
+    B --> C{Match Found?}
+
+    C -->|Yes| D[Suggest Match]
+    D --> E[Review]
+    E --> F[Confirm]
+    F --> G[Reconciled]
+
+    C -->|No| H[Create Accounting Case]
+    H --> I[Accountant Review]
+    I --> J{Accountant Understands?}
+
+    J -->|Yes| K[Create Journal Draft]
+    J -->|No| L[Create Client Action]
+    L --> M[WAITING_CLIENT]
+    M --> N[Client Responds]
+    N --> K
+
+    K --> O[Review]
+    O --> P[Record]
+    P --> G
+```
+
+---
+
+# 14. Use Case 3 — Missing Document
+
+```mermaid
+flowchart TD
+    A[Transaction Detected] --> B[Supporting Document Missing]
+    B --> C[Create Client Action]
+    C --> D[Notify Client]
+    D --> E{Client Uploads?}
+
+    E -->|No| F[Reminder / Escalation]
+    F --> E
+
+    E -->|Yes| G[Link Document]
+    G --> H[Resume Accounting Case]
+```
+
+---
+
+# 15. Use Case 4 — Month-End Closing
+
+```mermaid
+flowchart TD
+    A[Start Closing] --> B[Document Completeness]
+    B --> C[Bank Reconciliation]
+    C --> D[AR Review]
+    D --> E[AP Review]
+    E --> F[Payroll Check]
+    F --> G[Revenue Check]
+    G --> H[Expense Check]
+    H --> I[Tax Checklist]
+    I --> J[Exception Review]
+    J --> K{Blocker còn?}
+
+    K -->|Có| L[Resolve Blocker]
+    L --> J
+
+    K -->|Không| M[Senior Review]
+    M --> N[Approve Closing]
+    N --> O[Period Closed]
+```
+
+---
+
+# 16. ER Diagram
+
+```mermaid
+erDiagram
+    TENANT ||--o{ TENANT_MEMBERSHIP : has
+    USER ||--o{ TENANT_MEMBERSHIP : joins
+
+    TENANT ||--o{ DOCUMENT : owns
+    DOCUMENT ||--o{ DOCUMENT_VERSION : versions
+    DOCUMENT ||--o| NORMALIZED_DOCUMENT : produces
+
+    TENANT ||--o{ ACCOUNTING_CASE : owns
+    ACCOUNTING_CASE ||--o{ CASE_EVENT : events
+    ACCOUNTING_CASE ||--o{ REVIEW : reviews
+    ACCOUNTING_CASE ||--o{ CLIENT_ACTION : actions
+    ACCOUNTING_CASE ||--o| JOURNAL_DRAFT : prepares
+
+    JOURNAL_DRAFT ||--o{ JOURNAL_DRAFT_LINE : lines
+
+    TENANT ||--o{ PARTY : parties
+    TENANT ||--o{ BANK_ACCOUNT : accounts
+    BANK_ACCOUNT ||--o{ BANK_TRANSACTION : transactions
+    BANK_TRANSACTION ||--o{ RECONCILIATION : reconciliations
+
+    TENANT ||--o{ CLOSING_PERIOD : periods
+    CLOSING_PERIOD ||--o{ CLOSING_TASK : tasks
+
+    TENANT ||--o{ RULE : rules
+    RULE ||--o{ RULE_VERSION : versions
+
+    ACCOUNTING_CASE ||--o{ AI_SUGGESTION : suggestions
+    TENANT ||--o{ AUDIT_EVENT : audit
+```
+
+---
+
+# 17. Core Entities
+
+## AccountingCase
 
 ```text
 id
-code
-legal_name
-tax_code
-country
-base_currency
-timezone
-status
-created_at
-```
-
----
-
-## 9.2. User
-
-```text
-id
-email
-name
-status
-```
-
-User không chứa tenant trực tiếp nếu một user có thể truy cập nhiều tenant.
-
----
-
-## 9.3. TenantMembership
-
-```text
-user_id
 tenant_id
-role
+case_type
+source_type
+source_id
 status
+risk_level
+assigned_to
+period
+priority
+created_at
+updated_at
 ```
 
-Roles ví dụ:
+Index:
 
 ```text
-CLIENT_OWNER
-CLIENT_STAFF
-ACCOUNTANT
-SENIOR_ACCOUNTANT
-ACCOUNTING_MANAGER
-ADMIN
+tenant_id + status
+tenant_id + period
+assigned_to + status
+tenant_id + risk_level
 ```
 
----
-
-# 10. Document Domain
-
-## 10.1. Document
-
-Đại diện file gốc.
+## Document
 
 ```text
 id
@@ -486,989 +523,450 @@ uploaded_by
 uploaded_at
 ```
 
----
-
-## 10.2. DocumentVersion
-
-Không overwrite document.
-
-```text
-document_id
-version
-storage_key
-sha256
-created_at
-```
-
----
-
-## 10.3. Document Types
-
-Core:
-
-```text
-PURCHASE_INVOICE
-SALES_INVOICE
-CONTRACT
-BANK_STATEMENT
-PAYROLL
-PAYMENT_REQUEST
-RECEIPT
-ACCEPTANCE_RECORD
-OTHER
-```
-
-Vertical-specific document types có thể thêm qua config.
-
----
-
-# 11. Document Ingestion Flow
-
-```mermaid
-flowchart TD
-    A[Receive Document] --> B[Calculate SHA256]
-    B --> C{Duplicate?}
-    C -->|Yes| D[Link / Reject]
-    C -->|No| E[Persist File]
-    E --> F[Detect Type]
-    F --> G{Structured?}
-    G -->|XML/CSV/XLSX| H[Parser]
-    G -->|PDF/Image| I[Extract Text / AI Vision]
-    H --> J[Normalize]
-    I --> J
-    J --> K[Schema Validation]
-    K --> L[Business Validation]
-    L --> M[Create Accounting Document]
-```
-
----
-
-# 12. Source Priority
-
-Không dùng AI nếu dữ liệu đã structured.
-
-Priority:
-
-```text
-1. XML
-2. API
-3. CSV/XLSX
-4. PDF text layer
-5. Scanned PDF
-6. Image
-```
-
-Lý do:
-
-- deterministic hơn;
-- rẻ hơn;
-- dễ audit;
-- giảm hallucination.
-
----
-
-# 13. Canonical Accounting Document
-
-Mọi nguồn được normalize về schema chung.
-
-```json
-{
-  "id": "uuid",
-  "tenantId": "uuid",
-  "type": "PURCHASE_INVOICE",
-  "source": "EMAIL",
-  "externalReference": "INV-001",
-  "documentDate": "2026-09-01",
-  "currency": "VND",
-  "supplier": {
-    "name": "ABC Company",
-    "taxCode": "031..."
-  },
-  "subtotal": 10000000,
-  "tax": 1000000,
-  "total": 11000000,
-  "items": [],
-  "evidence": [],
-  "extractionMethod": "XML",
-  "confidence": 1.0
-}
-```
-
----
-
-# 14. Party Domain
-
-Party có thể là:
-
-```text
-CUSTOMER
-SUPPLIER
-EMPLOYEE
-PARTNER
-OTHER
-```
-
-Fields:
+## JournalDraft
 
 ```text
 id
 tenant_id
-party_type
-code
-name
-tax_code
-bank_accounts
-status
-```
-
----
-
-# 15. Chart of Accounts
-
-Hệ thống cần accounting abstraction nhưng không cần trở thành general ledger system đầy đủ ở MVP.
-
-```text
-Account
-- id
-- tenant_id
-- account_code
-- account_name
-- type
-- parent_id
-- status
-```
-
-Mapping có thể sync từ MISA/FAST hoặc import.
-
----
-
-# 16. Journal Draft
-
-AI/rule engine không ghi trực tiếp JournalEntry.
-
-Nó tạo:
-
-```text
-JournalDraft
-```
-
-Fields:
-
-```text
-id
-tenant_id
-source_document_id
+accounting_case_id
 status
 risk_level
+source
 created_by_type
 created_at
 ```
 
-Lines:
+JournalDraftLine:
 
 ```text
-account
+account_code
 debit
 credit
-party
-cost_center
-project
+party_id
 description
+project_id
+cost_center
 ```
 
 ---
 
-# 17. Journal Lifecycle
+# 18. Accounting Invariants
 
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> VALIDATED
-    VALIDATED --> REVIEW_REQUIRED
-    VALIDATED --> READY
-    REVIEW_REQUIRED --> APPROVED
-    REVIEW_REQUIRED --> REJECTED
-    APPROVED --> READY
-    READY --> POSTED
-    POSTED --> REVERSED
-```
-
-AI chỉ tạo:
-
-```text
-DRAFT
-```
-
-Không POST trực tiếp trong MVP.
-
----
-
-# 18. Accounting Validation Engine
-
-Mọi journal draft đi qua validation.
-
-## Mathematical
+Luôn enforce bằng code:
 
 ```text
 sum(debit) == sum(credit)
-```
-
-## Account
-
-```text
-account exists
+account tồn tại
 account active
-posting allowed
-```
-
-## Period
-
-```text
 period open
-```
-
-## Business
-
-```text
-document exists
-party exists if required
-tax data consistent
+amount hợp lệ
+party có nếu bắt buộc
+posted data không bị xóa im lặng
+closed period không sửa bình thường
 ```
 
 ---
 
 # 19. Rule Engine
 
-Rule engine là một trong các core assets quan trọng nhất.
-
-Example:
+Rule engine lưu kiến thức chắc chắn.
 
 ```yaml
-id: EXPENSE-CLOUD-001
-version: 3
+id: KNOWN_VENDOR_AWS
+version: 1
 
 when:
+  vendor_tax_code: "031..."
   document_type: PURCHASE_INVOICE
-  supplier_group: CLOUD_PROVIDER
 
 then:
-  expense_account: "642"
-  cost_center: "TECHNOLOGY"
-
-review:
+  category: CLOUD_SERVICE
+  suggested_account: "642"
   risk: LOW
 ```
 
----
-
-# 20. Rule Versioning
-
-Rule không overwrite.
-
-Fields:
+Rule phải có:
 
 ```text
-rule_id
 version
 effective_from
 effective_to
 status
-created_by
 approved_by
+audit
 ```
 
-Lý do:
-
-- audit;
-- regulatory change;
-- reproducibility;
-- rollback.
-
----
-
-# 21. AI Suggestion Domain
-
-```text
-AI_SUGGESTION
-```
-
-Fields:
-
-```text
-id
-tenant_id
-use_case
-entity_type
-entity_id
-model_provider
-model_name
-prompt_version
-input_hash
-output_json
-confidence
-risk_level
-created_at
+```mermaid
+flowchart TD
+    A[Case] --> B[Exact Rule]
+    B --> C{Found?}
+    C -->|Yes| D[Apply Rule]
+    C -->|No| E[Historical Mapping]
+    E --> F{Found?}
+    F -->|Yes| G[Use Mapping]
+    F -->|No| H[AI Suggestion]
+    H --> I[Human Review]
 ```
 
 ---
 
-# 22. AI Evidence
+# 20. AI Layer
+
+AI chỉ xử lý ambiguity.
+
+Phù hợp:
 
 ```text
-ai_suggestion_id
-source_type
-source_id
-field
-value
-page
-position
+document extraction
+classification
+semantic matching
+anomaly explanation
+client-friendly summary
 ```
 
-Ví dụ:
+Không dùng AI cho:
 
 ```text
-source = invoice.pdf
-field = description
-value = "AWS Cloud Service"
+arithmetic
+permission
+period locking
+unique constraints
+state transition rules
 ```
 
----
-
-# 23. AI Use Cases
-
-MVP:
-
-```text
-DOCUMENT_CLASSIFICATION
-DOCUMENT_EXTRACTION
-ACCOUNTING_CLASSIFICATION
-RECONCILIATION_ASSIST
-ANOMALY_EXPLANATION
-CLIENT_SUMMARY
-```
-
-Không xây chatbot generic trước.
-
----
-
-# 24. AI Provider Abstraction
-
-Không khóa business logic vào một provider.
-
-```java
-interface AiProvider {
-    ExtractionResult extract(DocumentInput input);
-    ClassificationResult classify(ClassificationInput input);
-    ExplanationResult explain(ExplanationInput input);
-}
-```
-
-AI Orchestrator quyết định:
-
-```text
-which model
-which prompt
-retry
-timeout
-fallback
-schema
-cost
-```
-
----
-
-# 25. Prompt Registry
-
-Prompt phải version.
-
-```text
-prompt_key
-version
-use_case
-system_prompt
-schema
-model_policy
-status
-created_at
-```
-
-Không hard-code prompt rải rác.
-
----
-
-# 26. Structured Output
-
-Không nhận plain text cho nghiệp vụ machine-consumable.
-
-Example:
+AI output bắt buộc structured:
 
 ```json
 {
-  "classification": "CLOUD_EXPENSE",
-  "suggestedAccount": "642",
-  "confidence": 0.96,
+  "decision": "CLOUD_SERVICE",
+  "confidence": 0.94,
   "evidence": [
     {
       "field": "description",
-      "value": "Cloud Infrastructure"
+      "value": "AWS infrastructure services"
     }
   ]
 }
 ```
 
----
-
-# 27. Human Review
-
-Review entity:
-
-```text
-id
-tenant_id
-entity_type
-entity_id
-review_type
-status
-assigned_to
-reviewed_by
-decision
-comment
-created_at
-reviewed_at
-```
-
-Statuses:
-
-```text
-OPEN
-IN_REVIEW
-APPROVED
-REJECTED
-NEED_INFO
-```
-
----
-
-# 28. Risk Routing
-
-## Low
-
-```text
-known vendor
-known rule
-valid document
-normal amount
-high historical consistency
-```
-
-→ junior/fast review.
-
-## Medium
-
-```text
-new vendor
-new category
-amount deviation
-missing optional context
-```
-
-→ accountant review.
-
-## High
-
-```text
-foreign payment
-related party
-large manual journal
-tax-sensitive
-refund
-unusual revenue
-```
-
-→ senior review.
-
----
-
-# 29. Banking Module
-
-## BankAccount
-
-```text
-id
-tenant_id
-bank_name
-account_number_masked
-currency
-status
-```
-
-## BankTransaction
-
-```text
-id
-bank_account_id
-external_id
-transaction_date
-value_date
-amount
-currency
-description
-counterparty
-reference
-import_batch_id
-```
-
----
-
-# 30. Bank Import
-
-MVP hỗ trợ:
-
-```text
-CSV
-XLSX
-manual upload
-```
-
-Sau:
-
-```text
-bank APIs
-open banking if available
-```
-
-Mọi import phải idempotent.
-
-Unique fingerprint có thể dựa trên:
-
-```text
-account
-date
-amount
-reference
-description_hash
-```
-
----
-
-# 31. Reconciliation Engine
-
 ```mermaid
 flowchart LR
-    BT[Bank Transaction]
-    INV[Invoice / AR / AP]
-
-    BT --> MATCH[Matching Engine]
-    INV --> MATCH
-
-    MATCH --> SCORE[Match Score]
-
-    SCORE --> HIGH[High Confidence]
-    SCORE --> MED[Medium]
-    SCORE --> LOW[Low]
-
-    HIGH --> SUGGEST[Suggest Match]
-    MED --> REVIEW[Human Review]
-    LOW --> OPEN[Unmatched]
+    A[Input] --> B[Prompt Registry]
+    B --> C[AI Provider]
+    C --> D[Structured Output]
+    D --> E[Schema Validation]
+    E --> F[Business Validation]
+    F --> G[Suggestion]
+    G --> H[Human Review]
 ```
 
 ---
 
-# 32. Matching Signals
+# 21. Risk Engine
 
-Ví dụ:
-
-```text
-amount           40%
-party            20%
-invoice number   15%
-date proximity   15%
-description      10%
-```
-
-Không hard-code score vĩnh viễn.
-
-Weights configurable/versioned.
-
----
-
-# 33. AR — Accounts Receivable
-
-Entities:
+Risk inputs:
 
 ```text
-Receivable
-ReceivablePayment
-ReceivableAgingSnapshot
+amount deviation
+new vendor
+new category
+foreign transaction
+manual journal
+tax-sensitive
+missing document
+related party
+historical correction frequency
 ```
-
-Theo dõi:
-
-```text
-customer
-invoice
-due_date
-outstanding_amount
-days_overdue
-status
-```
-
----
-
-# 34. AP — Accounts Payable
-
-Entities tương tự AR.
-
-Theo dõi:
-
-```text
-supplier
-invoice
-due_date
-payment
-outstanding
-```
-
----
-
-# 35. Closing Module
-
-Closing là workflow, không phải một action đơn.
 
 ```mermaid
 flowchart TD
-    A[Open Closing Period]
-    --> B[Document Completeness]
-    B --> C[Bank Reconciliation]
-    C --> D[AR Review]
-    D --> E[AP Review]
-    E --> F[Payroll Input Review]
-    F --> G[Tax Checklist]
-    G --> H[Accrual/Prepaid]
-    H --> I[Anomaly Review]
-    I --> J[Senior Approval]
-    J --> K[Close Period]
+    A[Risk Score] --> B{Risk}
+    B -->|LOW| C[Accountant Fast Review]
+    B -->|MEDIUM| D[Accountant Full Review]
+    B -->|HIGH| E[Senior Review]
+    E --> F{Approved?}
+    D --> F
+    C --> F
 ```
 
 ---
 
-# 36. Closing Checklist
+# 22. ClientAction
+
+Các loại:
 
 ```text
-closing_period
-task_key
+UPLOAD_DOCUMENT
+CONFIRM_TRANSACTION
+ANSWER_QUESTION
+APPROVE_INFORMATION
+```
+
+Fields:
+
+```text
+id
+tenant_id
+accounting_case_id
+action_type
+question
 status
-owner
 due_date
-completed_at
-evidence
-```
-
-Statuses:
-
-```text
-NOT_STARTED
-IN_PROGRESS
-WAITING_CLIENT
-WAITING_ACCOUNTANT
-REVIEW
-DONE
-BLOCKED
+assigned_client_user
+response
+created_at
+resolved_at
 ```
 
 ---
 
-# 37. Client Action List
+# 23. Work Queue
 
-Đây là feature customer-facing quan trọng nhất.
-
-Client không thấy internal task noise.
-
-Chỉ thấy:
+Ưu tiên:
 
 ```text
-NEED_CLIENT_ACTION
+1. Critical overdue
+2. Due today
+3. High-risk review
+4. Closing blocker
+5. Normal tasks
+```
+
+```mermaid
+flowchart TD
+    A[All Open Work] --> B[Priority Engine]
+    B --> C[Critical]
+    B --> D[Due Today]
+    B --> E[High Risk]
+    B --> F[Closing Blocker]
+    B --> G[Normal]
+```
+
+---
+
+# 24. Internal Dashboard
+
+Manager cần thấy:
+
+```text
+Active clients
+Open cases
+Waiting client
+Review required
+Closing at risk
+Tax deadlines
+Accountant capacity
+SLA breaches
 ```
 
 Ví dụ:
 
 ```text
-Upload contract ABC
-Confirm bank transaction 18m
-Approve payroll
-Provide missing invoice
+50 active clients
+17 waiting client
+11 review required
+4 closing at risk
+
+Accountant A: 12 clients
+Accountant B: 18 clients
+Accountant C: 10 clients
 ```
 
 ---
 
-# 38. Workflow Engine
+# 25. Client Portal
 
-Không cần BPMN engine lớn trong MVP.
-
-Entity:
+MVP chỉ cần:
 
 ```text
-workflow_instance
-workflow_step
-workflow_task
-```
-
-Template-based:
-
-```text
-CLIENT_ONBOARDING
-DOCUMENT_PROCESSING
-MONTH_END_CLOSE
-TAX_PERIOD
-```
-
----
-
-# 39. Tax Module
-
-MVP không tự tính mọi loại thuế phức tạp.
-
-Tax module quản lý:
-
-```text
-tax_period
-tax_type
-deadline
-status
-estimated_amount
-submission_reference
-review_status
-documents
-```
-
-Focus:
-
-```text
-workflow
-deadline
-review
-evidence
-```
-
-Không biến thành tax engine hoàn chỉnh ngay.
-
----
-
-# 40. Reporting Module
-
-Hai lớp reporting.
-
-## Accounting Reports
-
-```text
-Trial Balance
-P&L
-Balance Sheet
-AR Aging
-AP Aging
-```
-
-Có thể import/sync từ accounting system.
-
-## Owner Reports
-
-```text
-Cash
-Revenue
-Expense
-Profit
-AR overdue
-AP due
-Tax estimate
+Home
+Documents
 Actions
+Reports
 ```
 
-Owner reports phải dễ hiểu.
-
----
-
-# 41. Tenant Configuration
-
-Mỗi tenant cần config:
+Bên trong hệ thống:
 
 ```text
-base_currency
-accounting_period
-chart_of_accounts
-materiality_threshold
-risk_thresholds
-document_sources
-bank_sources
-review_policy
-vertical_profile
+VAT validation
+journal draft
+mapping
+reconciliation
+review
 ```
 
----
-
-# 42. Vertical Extension Model
-
-Không fork code theo ngành.
-
-Use:
+Khách chỉ thấy:
 
 ```text
-vertical_profile
-```
-
-Ví dụ:
-
-```text
-GENERAL_SERVICE
-AGENCY
-SOFTWARE_SERVICE
-IMMIGRATION
-CONSULTING
-```
-
-Vertical profile bổ sung:
-
-- custom rules;
-- document types;
-- dimensions;
-- dashboard metrics;
-- workflows.
-
----
-
-# 43. Example: Agency Extension
-
-Core không đổi.
-
-Thêm dimensions:
-
-```text
-project_id
-client_campaign
-```
-
-Reports:
-
-```text
-project profitability
-ad spend
-client margin
+Đã nhận
+Đang xử lý
+Cần bạn xử lý
+Hoàn tất
 ```
 
 ---
 
-# 44. Example: Immigration Extension
+# 26. System Architecture
 
-Thêm:
+```mermaid
+flowchart TB
+    subgraph UI
+        CP[Client Portal]
+        OP[Internal Operations]
+    end
 
-```text
-case_id
-program
-milestone
-foreign_partner
-refund_status
+    subgraph APP[Modular Monolith]
+        IAM[Identity/Tenant]
+        DOC[Documents]
+        CASE[Accounting Cases]
+        ACC[Accounting]
+        BANK[Banking]
+        REV[Reviews]
+        CA[Client Actions]
+        CLOSE[Closing]
+        RULE[Rules]
+        AI[AI Orchestrator]
+        REPORT[Reporting]
+        AUDIT[Audit]
+    end
+
+    CP --> APP
+    OP --> APP
+
+    DOC --> OBJ[(Object Storage)]
+    CASE --> DB[(PostgreSQL)]
+    ACC --> DB
+    BANK --> DB
+    REV --> DB
+    CA --> DB
+    CLOSE --> DB
+    RULE --> DB
+    AI --> DB
+    REPORT --> DB
+    AUDIT --> DB
+
+    AI --> LLM[AI Provider]
+    ACC --> ADAPTER[Accounting Adapter]
+    ADAPTER --> MISA[MISA / FAST / Other]
 ```
-
-Core journal, AR/AP, bank vẫn giữ nguyên.
 
 ---
 
-# 45. Multi-Tenancy
+# 27. Tech Stack đề xuất
 
-Mọi business table phải có:
+```text
+Backend: Java 21 + Spring Boot + Gradle + jOOQ
+Database: PostgreSQL
+Frontend: React / Next.js / TypeScript
+Storage: S3-compatible
+Observability: OpenTelemetry + Prometheus + Grafana
+Async MVP: PostgreSQL Outbox / Job Queue
+Scale later: Kafka/SQS nếu cần
+```
+
+---
+
+# 28. Backend Modules
+
+```text
+identity
+tenants
+clients
+documents
+cases
+parties
+accounting
+banking
+receivables
+payables
+reviews
+client-actions
+closing
+workflow
+rules
+ai
+reporting
+integrations
+audit
+```
+
+---
+
+# 29. Async Processing + Outbox
+
+```mermaid
+sequenceDiagram
+    participant API
+    participant DB
+    participant Worker
+    participant AI
+
+    API->>DB: Save Case + Outbox Event
+    DB-->>API: Commit
+    API-->>API: Return Response
+
+    Worker->>DB: Read Outbox
+    Worker->>AI: Process AI Task
+    AI-->>Worker: Result
+    Worker->>DB: Update Case
+```
+
+Các job chạy async:
+
+```text
+document extraction
+AI calls
+bank matching
+report generation
+anomaly scan
+```
+
+---
+
+# 30. API Design
+
+```http
+POST /v1/documents
+GET  /v1/documents/{id}
+
+GET  /v1/accounting-cases/{id}
+GET  /v1/accounting-cases?status=...
+
+GET  /v1/work-items
+
+POST /v1/reviews/{id}/decision
+
+POST /v1/client-actions/{id}/response
+
+POST /v1/closing-periods/{period}/start
+POST /v1/closing-periods/{period}/approve
+```
+
+---
+
+# 31. Multi-Tenancy
+
+Mọi business table có:
 
 ```text
 tenant_id
 ```
 
-Tenant ID lấy từ authenticated context.
+Tenant lấy từ authenticated context.
 
-Không nhận tenant ID từ client request body nếu có thể tránh.
+Không tin tenant ID gửi từ frontend.
 
----
-
-# 46. Authorization
-
-RBAC tối thiểu:
+Bắt buộc test:
 
 ```text
-CLIENT_OWNER
-CLIENT_STAFF
-ACCOUNTANT
-SENIOR_ACCOUNTANT
-ACCOUNTING_MANAGER
-SYSTEM_ADMIN
-```
-
-Ngoài role có thể thêm scope:
-
-```text
-DOCUMENT_READ
-DOCUMENT_WRITE
-ACCOUNTING_REVIEW
-ACCOUNTING_APPROVE
-TAX_REVIEW
-REPORT_VIEW
+User tenant A không được đọc/ghi tenant B.
 ```
 
 ---
 
-# 47. Data Classification
+# 32. Audit Trail
 
-## Level 1 — Normal Business
-
-```text
-public company data
-basic invoice metadata
-```
-
-## Level 2 — Confidential
-
-```text
-contracts
-ledger
-bank transactions
-AR/AP
-```
-
-## Level 3 — Restricted
-
-```text
-salary details
-personal IDs
-bank credentials
-secrets
-```
-
-Restricted data cần policy riêng.
-
----
-
-# 48. AI Data Policy
-
-Không gửi lên external AI:
-
-```text
-password
-API secret
-bank credential
-private key
-authentication token
-```
-
-Có thể cần redact:
-
-```text
-personal IDs
-sensitive employee data
-```
-
-tuỳ use case.
-
----
-
-# 49. Audit Trail
-
-Mọi action quan trọng tạo AuditEvent:
+AuditEvent:
 
 ```text
 id
@@ -1478,1211 +976,686 @@ actor_id
 event_type
 entity_type
 entity_id
-before
-after
+before_json
+after_json
 reason
 timestamp
 ```
 
-Ví dụ:
+Audit bắt buộc cho:
 
 ```text
-DOCUMENT_UPLOADED
-AI_SUGGESTION_CREATED
-JOURNAL_APPROVED
-RECONCILIATION_CONFIRMED
-PERIOD_CLOSED
-PERMISSION_CHANGED
+review
+journal changes
+rule changes
+permission changes
+closing
+client response
+AI suggestion
 ```
 
 ---
 
-# 50. Immutable Accounting Principle
-
-Posted accounting data không delete.
-
-Sai:
-
-```text
-DELETE journal
-```
-
-Đúng:
-
-```text
-reverse
-+
-new journal
-```
-
----
-
-# 51. Integration Architecture
-
-```mermaid
-flowchart LR
-    PLATFORM[Our Platform]
-    ADAPTER[Integration Adapter]
-
-    PLATFORM --> ADAPTER
-
-    ADAPTER --> MISA[MISA]
-    ADAPTER --> FAST[FAST]
-    ADAPTER --> EXCEL[Excel/CSV]
-    ADAPTER --> BANK[Bank]
-    ADAPTER --> EINVOICE[E-Invoice]
-```
-
----
-
-# 52. Accounting System Adapter
-
-Interface:
-
-```java
-interface AccountingSystemAdapter {
-    ChartOfAccounts fetchChartOfAccounts();
-    List<JournalEntry> fetchJournalEntries(Period period);
-    List<Party> fetchParties();
-    PostResult postJournal(JournalDraft draft);
-}
-```
-
-Posting có thể disabled ở MVP.
-
----
-
-# 53. Bring Your Own Accounting System
-
-Khách có thể giữ:
-
-```text
-MISA
-FAST
-Excel
-other
-```
-
-Platform không yêu cầu migrate ngay.
-
-Điều này giảm:
-
-- trust barrier;
-- migration cost;
-- vendor resistance.
-
----
-
-# 54. Event Model
-
-Domain events ví dụ:
-
-```text
-DocumentUploaded
-DocumentExtracted
-DocumentValidated
-JournalDraftCreated
-ReviewRequested
-ReviewApproved
-BankTransactionImported
-ReconciliationSuggested
-ClientActionCreated
-ClosingTaskCompleted
-PeriodClosed
-```
-
----
-
-# 55. Outbox Pattern
-
-Nếu cần gửi async:
-
-```text
-business transaction
-+
-outbox event
-```
-
-trong cùng DB transaction.
-
-Worker đọc outbox và xử lý.
-
-Điều này tránh mất event.
-
----
-
-# 56. Background Jobs
-
-Jobs:
-
-```text
-document processing
-bank import processing
-AI extraction
-reconciliation
-anomaly scan
-closing reminders
-report generation
-```
-
-Job phải:
-
-```text
-idempotent
-retryable
-observable
-```
-
----
-
-# 57. Idempotency
-
-Các API ingest phải nhận:
-
-```text
-Idempotency-Key
-```
-
-Hoặc tự derive fingerprint.
-
-Quan trọng với:
-
-- upload;
-- bank import;
-- external sync;
-- AI reprocessing.
-
----
-
-# 58. Error Handling
-
-Error categories:
-
-```text
-VALIDATION_ERROR
-BUSINESS_RULE_ERROR
-EXTERNAL_PROVIDER_ERROR
-AI_SCHEMA_ERROR
-INTEGRATION_ERROR
-PERMISSION_ERROR
-```
-
-Không expose stack trace cho client.
-
----
-
-# 59. AI Failure Strategy
-
-```text
-AI failed
-↓
-retry limited
-↓
-fallback model/provider if configured
-↓
-manual review queue
-```
-
-Accounting workflow không được block vô thời hạn vì AI outage.
-
----
-
-# 60. Security Baseline
-
-Required:
+# 33. Security Baseline
 
 ```text
 TLS
-Encryption at rest
 RBAC
-MFA for internal staff
-Secrets manager
-Audit log
-Backups
-Rate limiting
-Session controls
+MFA cho internal users
+encrypted object storage
+secret manager
+signed URLs
+audit log
+backups
+rate limiting
+PII access control
 ```
 
----
-
-# 61. Database Security
-
-- separate DB user per environment;
-- least privilege;
-- no production shared admin;
-- migration account tách riêng;
-- read-only analytics user;
-- encrypted backups.
-
----
-
-# 62. Object Storage Security
-
-- private bucket;
-- signed URLs;
-- no public ACL;
-- server-side encryption;
-- retention policy;
-- document hash.
-
----
-
-# 63. Observability
-
-## Metrics
+Không gửi lên AI:
 
 ```text
-http_requests
-job_processing_time
-document_processing_time
-ai_requests
-ai_cost
-ai_schema_failure
-reconciliation_rate
-human_review_rate
-closing_duration
+password
+bank credential
+API secret
+private key
+authentication token
 ```
 
 ---
 
-# 64. Business/Operations Metrics
+# 34. Data Ownership
 
-Phải đưa vào platform từ sớm.
+Nguyên tắc:
+
+> **Data belongs to customer.**
+
+Phải có:
 
 ```text
-human_minutes_per_client
-documents_per_client
-exceptions_per_client
-reviews_per_accountant
-clients_per_accountant
-support_contacts_per_client
+export
+access revoke
+audit
+retention policy
+termination process
 ```
-
-Đây là metrics sống còn của business model.
 
 ---
 
-# 65. AI Quality Metrics
+# 35. System of Record Strategy
+
+Giai đoạn đầu:
 
 ```text
-field_extraction_accuracy
-classification_accuracy
-journal_suggestion_acceptance
-reconciliation_precision
-human_correction_rate
-false_alert_rate
+MISA / FAST / Existing System
+=
+System of Record
+```
+
+Our Platform:
+
+```text
+System of Work
++
+System of Control
++
+System of Intelligence
+```
+
+Không rebuild full accounting ledger quá sớm.
+
+---
+
+# 36. Accounting System Adapter
+
+```java
+interface AccountingSystemAdapter {
+
+    List<Account> fetchAccounts();
+
+    List<Party> fetchParties();
+
+    List<JournalEntry> fetchJournalEntries(
+        AccountingPeriod period
+    );
+
+    SyncResult syncApprovedDraft(
+        JournalDraft draft
+    );
+}
+```
+
+MVP có thể import/export file trước, API integration sau.
+
+---
+
+# 37. Testing Strategy
+
+## Unit
+
+```text
+rule engine
+state transition
+risk calculation
+journal validation
+```
+
+## Integration
+
+```text
+database
+storage
+external adapters
+AI schema validation
+```
+
+## E2E
+
+```text
+upload
+→ case
+→ classify
+→ draft
+→ review
+→ record
+→ reconcile
+→ close
 ```
 
 ---
 
-# 66. Golden Dataset
+# 38. Accounting Acceptance Tests
 
-Mỗi correction của accountant có thể trở thành candidate cho golden dataset.
+Mỗi feature phải có acceptance test do Accounting Lead xác nhận.
 
-Golden record:
+Ví dụ:
+
+```text
+GIVEN:
+AWS invoice 22m
+
+WHEN:
+system processes invoice
+
+THEN:
+- supplier resolved correctly
+- total validated
+- journal draft created
+- risk LOW
+- accountant review requested
+- source document linked
+```
+
+Không release nếu chỉ pass technical test.
+
+---
+
+# 39. Golden Dataset
+
+Case thật đã được senior xác nhận có thể trở thành golden record.
 
 ```text
 input
-expected output
-reviewer
+expected classification
+expected journal
+expected risk
+expected reviewer
 reason
-approved_at
 ```
 
-Không tự động dùng mọi correction làm ground truth.
-
-Senior review có thể cần.
+Dùng để regression test rule + AI.
 
 ---
 
-# 67. Evaluation Pipeline
+# 40. Metrics
 
-Mỗi khi đổi:
+Technical:
 
 ```text
-prompt
-model
-rule
-schema
+API p95
+job latency
+AI latency
+AI schema failure
+document processing time
+error rate
 ```
 
-chạy regression evaluation.
-
-Không deploy prompt mới chỉ vì “thử thấy tốt”.
-
----
-
-# 68. Performance Requirements
-
-MVP targets tham khảo:
+Business/Operations:
 
 ```text
-API p95 < 500ms cho synchronous business API
-Upload acknowledgement < 2s
-Async document processing < 60s phổ biến
-Dashboard query < 2s
-```
-
-AI latency không nằm trong synchronous transaction nếu tránh được.
-
----
-
-# 69. Availability
-
-MVP target:
-
-```text
-99.5%
-```
-
-Sau khi scale:
-
-```text
-99.9%
-```
-
-Accounting service không cần ultra-low latency, nhưng cần durability và correctness.
-
----
-
-# 70. Backup & Recovery
-
-Minimum:
-
-```text
-daily full backup
-continuous WAL / PITR nếu hạ tầng hỗ trợ
-object storage versioning
-restore test định kỳ
-```
-
-Define:
-
-```text
-RPO
-RTO
-```
-
-trước production.
-
----
-
-# 71. Environment Strategy
-
-```text
-local
-dev
-staging
-production
-```
-
-Không dùng production data thật ở dev.
-
-Nếu cần test:
-
-```text
-masked/anonymized data
+human_minutes_per_client
+human_minutes_per_document
+automation_rate
+exception_rate
+review_rate
+closing_duration
+client_response_time
+rework_rate
+clients_per_accountant
 ```
 
 ---
 
-# 72. Database Migration
+# 41. Definition of Done
 
-Dùng một migration tool chuẩn.
+Một automation feature chưa Done nếu thiếu:
 
-Requirements:
-
-- versioned;
-- immutable applied migrations;
-- backward-compatible release nếu có rolling deploy;
-- schema review.
+```text
+[ ] workflow nghiệp vụ được Accounting Lead xác nhận
+[ ] state transition rõ
+[ ] input/output rõ
+[ ] rule rõ
+[ ] exception rõ
+[ ] human fallback
+[ ] audit
+[ ] permission
+[ ] metrics
+[ ] test case thật
+[ ] acceptance test
+```
 
 ---
 
-# 73. Suggested Repository
+# 42. MVP Roadmap
+
+## Phase 0 — Domain Discovery
+
+Chưa code automation.
+
+Làm:
 
 ```text
-ai-accounting/
+20–50 case thật
+workflow mapping
+decision table
+exception catalog
+```
+
+Output:
+
+```text
+Domain Playbook
+```
+
+## Phase 1 — Operational Backbone
+
+```text
+Tenant
+User
+Document
+AccountingCase
+Work Queue
+ClientAction
+Review
+Audit
+```
+
+## Phase 2 — Document Intelligence
+
+```text
+XML parsing
+PDF/image extraction
+duplicate check
+normalized document
+classification
+```
+
+## Phase 3 — Accounting Assistance
+
+```text
+chart of accounts
+party
+rule engine
+historical mapping
+journal draft
+validation
+human review
+```
+
+## Phase 4 — Banking
+
+```text
+bank import
+matching
+reconciliation
+unmatched queue
+```
+
+## Phase 5 — Closing
+
+```text
+closing period
+closing checklist
+blocker
+senior review
+close
+```
+
+## Phase 6 — Client Portal
+
+```text
+Home
+Documents
+Actions
+Reports
+```
+
+---
+
+# 43. Domain Discovery Workshop
+
+Mỗi buổi 60–90 phút, chỉ xử lý **một case thật**.
+
+Template:
+
+```text
+1. Trigger là gì?
+2. Input là gì?
+3. Accountant làm gì?
+4. Quyết định gì?
+5. Rule nào chắc chắn?
+6. Exception nào hay gặp?
+7. Khi nào hỏi khách?
+8. Khi nào cần senior?
+9. Output là gì?
+10. Khi nào Done?
+```
+
+---
+
+# 44. Decision Table
+
+Ví dụ:
+
+| Điều kiện | Kết quả |
+|---|---|
+| Vendor đã biết + amount bình thường + đủ chứng từ | LOW risk |
+| Vendor mới + đủ chứng từ | MEDIUM |
+| Foreign transaction | HIGH |
+| Thiếu hợp đồng bắt buộc | WAITING_CLIENT |
+| Không xác định được nghiệp vụ | NEED_ACCOUNTANT |
+
+Mỗi bảng phải được Accounting Lead approve.
+
+---
+
+# 45. Exception Catalog
+
+Exception là first-class concept.
+
+```text
+MISSING_DOCUMENT
+UNKNOWN_PARTY
+UNMATCHED_BANK_TRANSACTION
+DUPLICATE_INVOICE
+INVALID_TOTAL
+CLOSED_PERIOD
+HIGH_AMOUNT_DEVIATION
+FOREIGN_TRANSACTION
+MANUAL_JOURNAL
+```
+
+Mỗi exception có:
+
+```text
+severity
+owner
+resolution_flow
+SLA
+escalation
+```
+
+---
+
+# 46. Domain Knowledge Registry
+
+Không để knowledge nằm trong Zalo/chat.
+
+Repo:
+
+```text
+docs/
+└── accounting-domain/
+    ├── purchase-invoice.md
+    ├── sales-invoice.md
+    ├── bank-reconciliation.md
+    ├── closing.md
+    ├── exceptions.md
+    └── decisions/
+```
+
+---
+
+# 47. Repository đề xuất
+
+```text
+accounting-os/
 ├── apps/
 │   ├── backend/
 │   └── web/
 ├── modules/
-│   ├── identity/
-│   ├── tenants/
 │   ├── documents/
-│   ├── parties/
-│   ├── banking/
+│   ├── cases/
 │   ├── accounting/
-│   ├── receivables/
-│   ├── payables/
+│   ├── banking/
 │   ├── closing/
-│   ├── tax/
-│   ├── workflow/
-│   ├── ai/
+│   ├── reviews/
+│   ├── client-actions/
 │   ├── rules/
-│   ├── reporting/
-│   ├── integrations/
+│   ├── ai/
 │   └── audit/
 ├── docs/
+│   ├── domain/
 │   ├── architecture/
-│   ├── accounting/
-│   ├── security/
-│   └── adr/
+│   ├── adr/
+│   └── api/
+├── rules/
 ├── prompts/
 ├── schemas/
-├── rules/
 ├── evals/
 └── scripts/
 ```
 
 ---
 
-# 74. API Design Principles
-
-REST đủ cho MVP.
-
-Patterns:
-
-```text
-POST /v1/documents
-GET  /v1/documents/{id}
-GET  /v1/client-actions
-GET  /v1/accounting/status
-POST /v1/reviews/{id}/approve
-POST /v1/bank-imports
-GET  /v1/reconciliations
-POST /v1/closings/{period}/start
-```
-
----
-
-# 75. Document Upload API
-
-```http
-POST /v1/documents
-Content-Type: multipart/form-data
-Idempotency-Key: ...
-```
-
-Response:
-
-```json
-{
-  "id": "...",
-  "status": "RECEIVED"
-}
-```
-
-Processing async.
-
----
-
-# 76. Review API
-
-```http
-POST /v1/reviews/{reviewId}/decision
-```
-
-```json
-{
-  "decision": "APPROVE",
-  "comment": "..."
-}
-```
-
-Backend kiểm tra permission và state transition.
-
----
-
-# 77. Client Action API
-
-```http
-GET /v1/client-actions?status=OPEN
-```
-
-Output phải business friendly.
-
-Không expose technical internal task trực tiếp.
-
----
-
-# 78. State Machines
-
-Mỗi core workflow cần explicit state machine.
-
-Ví dụ Document:
-
-```text
-RECEIVED
-PROCESSING
-EXTRACTED
-VALIDATED
-NEED_REVIEW
-READY
-ARCHIVED
-FAILED
-```
-
-Không dùng nhiều boolean như:
-
-```text
-isProcessed
-isApproved
-isFailed
-```
-
----
-
-# 79. Notification Module
-
-Channels có thể:
-
-```text
-email
-in-app
-```
-
-Sau có thể:
-
-```text
-Zalo OA
-Teams
-SMS
-```
-
-Notification phải template-based.
-
----
-
-# 80. Client Status
-
-Status tổng hợp từ actual workflow, không do user manually nhập.
-
-Ví dụ:
-
-```text
-September completion = 
-completed weighted tasks / total weighted tasks
-```
-
-Phải định nghĩa formula rõ.
-
----
-
-# 81. Customer Data Ownership
-
-Thiết kế theo nguyên tắc:
-
-> Data belongs to customer.
-
-Cần có:
-
-- export;
-- revocable access;
-- permission log;
-- retention policy;
-- deletion/termination procedure theo hợp đồng và pháp luật.
-
----
-
-# 82. Auditability of AI
-
-Mỗi AI decision phải reproducible ở mức:
-
-```text
-model
-prompt version
-input references
-output
-validation
-review
-```
-
-Không nhất thiết reproduce exact probabilistic output, nhưng phải biết hệ thống dựa trên cái gì.
-
----
-
-# 83. Cost Control
-
-AI routing:
-
-```text
-structured data
-→ no AI
-
-simple classification
-→ cheaper model
-
-complex document
-→ stronger model
-
-complex explanation
-→ stronger model
-```
-
-Cache theo:
-
-```text
-input_hash
-prompt_version
-model_policy
-```
-
----
-
-# 84. MVP Phase 1 — Document Control
-
-## Scope
-
-- tenant;
-- user;
-- upload;
-- object storage;
-- duplicate;
-- extraction;
-- classification;
-- review;
-- client action;
-- audit.
-
-## Exit Criteria
-
-- 5 pilot clients;
-- >95% required field accuracy trên document set mục tiêu;
-- zero cross-tenant incidents;
-- measurable human minutes saved.
-
----
-
-# 85. MVP Phase 2 — Accounting Suggestions
-
-## Scope
-
-- chart of accounts;
-- parties;
-- rules;
-- historical mapping;
-- journal draft;
-- validation;
-- review.
-
-## Exit Criteria
-
-- suggestion acceptance rate measured;
-- no auto-post;
-- corrections stored.
-
----
-
-# 86. MVP Phase 3 — Bank Reconciliation
-
-## Scope
-
-- bank import;
-- normalize;
-- matching;
-- exception queue.
-
-## Exit Criteria
-
-- precision cao trên high-confidence matches;
-- accountant review time giảm.
-
----
-
-# 87. MVP Phase 4 — Closing & Owner Dashboard
-
-## Scope
-
-- closing workflow;
-- status;
-- client actions;
-- AR/AP aging;
-- monthly owner summary.
-
----
-
-# 88. Future Phase — Finance Control
-
-Sau khi accounting data đủ tốt:
-
-```text
-cash forecast
-budget
-variance
-project profitability
-vertical reporting
-```
-
----
-
-# 89. Future Phase — Virtual CFO
-
-Không làm trước khi có:
-
-- clean accounting data;
-- stable reporting;
-- trusted workflow;
-- customer demand.
-
----
-
-# 90. Testing Strategy
-
-## Unit
-
-- rule evaluation;
-- calculations;
-- state transitions.
-
-## Integration
-
-- DB;
-- storage;
-- adapters;
-- AI schema validation.
-
-## Contract
-
-- external accounting adapters.
-
-## E2E
-
-```text
-upload invoice
-→ extract
-→ draft
-→ review
-→ reconciliation
-→ closing
-```
-
----
-
-# 91. AI Testing
-
-Không chỉ test HTTP 200.
-
-Test:
-
-```text
-exact field accuracy
-classification
-schema adherence
-evidence correctness
-hallucination cases
-edge cases
-```
-
----
-
-# 92. Security Testing
-
-- tenant isolation tests;
-- authorization tests;
-- signed URL expiry;
-- secrets scanning;
-- dependency scanning;
-- audit completeness.
-
----
-
-# 93. Accounting Invariants
-
-Examples:
-
-```text
-Debit = Credit
-Closed period immutable
-Posted entry cannot disappear
-Tenant data cannot cross
-Every approval has actor
-Every AI suggestion has provenance
-```
-
-Các invariant này phải có automated tests.
-
----
-
-# 94. Operational Runbooks
-
-Cần:
-
-```text
-AI provider outage
-bank import failed
-document extraction stuck
-incorrect posting
-customer data export
-user access revocation
-security incident
-restore database
-```
-
----
-
-# 95. ADRs cần viết
+# 48. ADR cần viết
 
 ```text
 ADR-001 Modular Monolith
 ADR-002 PostgreSQL
-ADR-003 jOOQ
-ADR-004 AI Provider Abstraction
-ADR-005 System of Record remains external initially
-ADR-006 Human-in-the-loop
-ADR-007 Rule Versioning
-ADR-008 Audit-first design
+ADR-003 External System of Record
+ADR-004 Human-in-the-loop
+ADR-005 Rule Before AI
+ADR-006 AccountingCase Aggregate
+ADR-007 Immutable Audit
+ADR-008 Rule Versioning
 ```
 
 ---
 
-# 96. Key Design Trade-offs
+# 49. Sequence — Invoice Processing
 
-## External Ledger vs Own Ledger
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Case
+    participant Worker
+    participant Rule
+    participant AI
+    participant Accountant
 
-### External first
+    Client->>API: Upload invoice
+    API->>Case: Create AccountingCase
+    API-->>Client: Received
 
-Pros:
+    Worker->>Case: Parse + validate
+    Worker->>Rule: Find matching rule
 
-- lower scope;
-- faster market;
-- trust;
-- legal/accounting maturity.
+    alt Rule found
+        Rule-->>Worker: Accounting suggestion
+    else No rule
+        Worker->>AI: Request suggestion
+        AI-->>Worker: Structured suggestion
+    end
 
-Cons:
-
-- integration dependency;
-- less control.
-
-Decision:
-
-> External system of record first.
-
----
-
-# 97. AI vs Deterministic Rules
-
-Decision:
-
-> Deterministic first whenever possible.
-
-AI only when ambiguity justifies cost/risk.
-
----
-
-# 98. Multi-Tenant Shared DB vs Database-per-Tenant
-
-MVP:
-
-```text
-shared database
-shared schema
-tenant_id
-strong isolation
-```
-
-Lý do:
-
-- simpler ops;
-- lower cost;
-- easier analytics.
-
-Database-per-tenant chỉ xem xét khi:
-
-- enterprise requirement;
-- legal requirement;
-- extreme isolation requirement.
-
----
-
-# 99. Synchronous vs Async
-
-Document/AI processing:
-
-```text
-async
-```
-
-CRUD/status:
-
-```text
-sync
-```
-
-Không để AI call kéo dài request thread không cần thiết.
-
----
-
-# 100. Success Criteria của Technical Platform
-
-Platform chỉ được coi là thành công nếu đồng thời:
-
-```text
-Customer effort ↓
-Accountant effort ↓
-Errors ↓
-Visibility ↑
-Auditability ↑
-```
-
-Không phải vì:
-
-```text
-AI demo đẹp
+    Worker->>Case: Create JournalDraft
+    Case->>Accountant: Review task
+    Accountant->>Case: Approve / Correct
+    Case-->>Client: Status updated
 ```
 
 ---
 
-# 101. Business KPIs gắn trực tiếp vào thiết kế
+# 50. Sequence — Client Missing Info
 
-Từ ngày đầu phải có ability đo:
+```mermaid
+sequenceDiagram
+    participant System
+    participant Accountant
+    participant Client
+    participant Case
 
-```text
-human_minutes_per_document
-human_minutes_per_client
-automation_rate
-exception_rate
-review_acceptance_rate
-closing_time
-support_contacts
+    System->>Accountant: Exception detected
+    Accountant->>Case: Confirm missing info
+    Case->>Client: Create action
+    Client->>Case: Submit response
+    Case->>Accountant: Resume work
+    Accountant->>Case: Continue processing
 ```
-
-Architecture phải phục vụ business learning.
 
 ---
 
-# 102. 12-Month Engineering Roadmap
+# 51. Sequence — Closing
 
-## Month 1–2
+```mermaid
+sequenceDiagram
+    participant Manager
+    participant Closing
+    participant Accountant
+    participant Senior
+
+    Manager->>Closing: Start period close
+    Closing->>Accountant: Generate checklist
+    Accountant->>Closing: Complete tasks
+    Closing->>Closing: Validate blockers
+
+    alt Blockers remain
+        Closing-->>Accountant: Resolve blockers
+    else Ready
+        Closing->>Senior: Review
+        Senior->>Closing: Approve
+        Closing->>Closing: Mark CLOSED
+    end
+```
+
+---
+
+# 52. Component Diagram
+
+```mermaid
+flowchart LR
+    UI[Web UI]
+
+    UI --> API[Backend API]
+
+    API --> CASE[Case Module]
+    API --> DOC[Document Module]
+    API --> ACC[Accounting Module]
+    API --> BANK[Banking Module]
+    API --> CLOSE[Closing Module]
+    API --> REVIEW[Review Module]
+    API --> RULE[Rule Module]
+    API --> AI[AI Module]
+
+    DOC --> S3[(Object Storage)]
+    CASE --> PG[(PostgreSQL)]
+    ACC --> PG
+    BANK --> PG
+    CLOSE --> PG
+    REVIEW --> PG
+    RULE --> PG
+    AI --> PG
+
+    AI --> MODEL[AI Provider]
+    ACC --> EXT[Accounting Adapter]
+```
+
+---
+
+# 53. Deployment Diagram
+
+```mermaid
+flowchart TB
+    USER[Users]
+    LB[Load Balancer]
+    WEB[Web App]
+    API[Backend]
+    WORKER[Background Worker]
+    DB[(PostgreSQL)]
+    OBJ[(Object Storage)]
+    AI[AI Provider]
+    EXT[Accounting System]
+
+    USER --> LB
+    LB --> WEB
+    WEB --> API
+    API --> DB
+    API --> OBJ
+    API --> WORKER
+    WORKER --> DB
+    WORKER --> AI
+    WORKER --> EXT
+```
+
+---
+
+# 54. Failure Handling
+
+**AI unavailable**
 
 ```text
-Identity
-Tenant
-Document intake
-Storage
+retry limited
+→ manual review queue
+```
+
+**Integration unavailable**
+
+```text
+store pending sync
+→ retry
+→ alert nếu quá SLA
+```
+
+**Document parsing failed**
+
+```text
+NEED_ACCOUNTANT
+```
+
+Workflow không được chết im lặng.
+
+---
+
+# 55. Quy tắc phát triển cuối cùng
+
+Mọi feature mới phải bắt đầu bằng:
+
+```text
+Case thật
+↓
+Accounting Lead giải thích
+↓
+Workflow
+↓
+Decision Table
+↓
+Exception
+↓
+State Machine
+↓
+Acceptance Test
+↓
+Technical Design
+↓
+Code
+```
+
+Không được đảo ngược.
+
+---
+
+# 56. Kết luận
+
+Hệ thống có thể được build bởi founder không phải dân kế toán nếu separation of responsibility rõ:
+
+```text
+Accounting Lead
+= định nghĩa đúng nghiệp vụ
+
+Founder/CTO
+= biến nghiệp vụ thành hệ thống
+```
+
+Technical core:
+
+```text
+AccountingCase
++
+State Machine
++
+Rule Engine
++
+Review
++
+Client Action
++
+Reconciliation
++
+Closing
++
 Audit
 ```
 
-## Month 3
+AI chỉ là lớp hỗ trợ.
 
-```text
-Extraction
-Classification
-Review
-Client actions
-```
-
-## Month 4–5
-
-```text
-Accounting core
-Rules
-Journal draft
-```
-
-## Month 6
-
-```text
-Bank import
-Reconciliation
-```
-
-## Month 7–8
-
-```text
-AR/AP
-Closing workflow
-```
-
-## Month 9
-
-```text
-Owner dashboard
-Monthly report
-```
-
-## Month 10–12
-
-```text
-Optimization
-Vertical rules
-Integrations
-Evaluation
-Cost reduction
-```
-
-Roadmap phải thay đổi theo pilot data.
-
----
-
-# 103. Suggested Team
-
-Giai đoạn đầu:
-
-```text
-Founder / CTO / Product
-Accounting Lead
-1 Full-stack Engineer
-```
-
-Sau khi có traction:
-
-```text
-Accountant(s)
-Customer success
-Second engineer
-```
-
-Không cần AI research team.
-
----
-
-# 104. Definition of Done cho một Automation Feature
-
-Feature chưa Done nếu chỉ “AI trả lời đúng”.
-
-Phải có:
-
-```text
-[ ] business requirement
-[ ] schema
-[ ] validation
-[ ] state transition
-[ ] audit
-[ ] metrics
-[ ] test dataset
-[ ] human fallback
-[ ] security review
-[ ] cost visibility
-```
-
----
-
-# 105. Example End-to-End Flow
-
-Một purchase invoice:
-
-```text
-1. Client uploads invoice.
-2. System stores immutable source.
-3. SHA256 duplicate check.
-4. Detect document type.
-5. Parse/AI extract.
-6. Normalize canonical schema.
-7. Validate totals.
-8. Resolve supplier.
-9. Apply accounting rules.
-10. Ask AI only if ambiguous.
-11. Create JournalDraft.
-12. Validate debit/credit.
-13. Calculate risk.
-14. Route accountant review.
-15. Accountant approve/correct.
-16. Sync/post to external accounting system.
-17. Reconcile against bank if available.
-18. Update closing status.
-19. Update client dashboard.
-20. Write audit events.
-```
-
----
-
-# 106. Example End-to-End Client Experience
-
-Khách hàng không thấy 20 bước trên.
-
-Khách chỉ thấy:
-
-```text
-Invoice received ✓
-Processed ✓
-No action needed
-```
-
-Hoặc:
-
-```text
-Action needed:
-Please upload contract ABC.
-```
-
-Đây là nguyên tắc:
-
-> Complexity inside. Simplicity outside.
-
----
-
-# 107. Long-Term Architecture Evolution
-
-## Stage 1
-
-```text
-System of Work
-```
-
-## Stage 2
-
-```text
-System of Control
-```
-
-## Stage 3
-
-```text
-System of Intelligence
-```
-
-## Stage 4
-
-Có thể cân nhắc:
-
-```text
-System of Record
-```
-
-nhưng chỉ khi business cần.
-
----
-
-# 108. Final Architecture Principle
-
-```text
-Generic Accounting Core
-        +
-Configurable Rules
-        +
-Human Review
-        +
-AI Assistance
-        +
-External Integrations
-```
-
-Không xây:
-
-```text
-AI Black Box
-```
-
----
-
-# 109. Final Summary
-
-TDD này đề xuất xây một **Accounting Operations Platform** cho mô hình dịch vụ kế toán thuê ngoài.
-
-Chiến lược kỹ thuật cốt lõi:
-
-1. bắt đầu bằng modular monolith;
-2. PostgreSQL làm operational database;
-3. external accounting system giữ vai trò system of record giai đoạn đầu;
-4. accounting core đủ tổng quát;
-5. vertical specialization bằng configuration/rules;
-6. AI chỉ hỗ trợ ambiguity;
-7. rule engine xử lý deterministic logic;
-8. mọi AI output phải có evidence;
-9. human review giữ accountability;
-10. platform phải đo trực tiếp hiệu quả business.
-
-Câu chốt:
-
-> **Khách hàng ban đầu hẹp, nhưng accounting core phải rộng; AI là leverage, không phải lõi; workflow, rules, audit và human review mới là nền tảng của sản phẩm.**
+> **Không code kế toán từ trí nhớ. Code workflow đã được domain expert xác nhận.**
