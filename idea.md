@@ -1,1394 +1,2103 @@
-# MASTER PLAN — STARTUP DỊCH VỤ KẾ TOÁN THUÊ NGOÀI ỨNG DỤNG AI
-## Customer, Market, Service, Competition, Positioning & Execution Strategy
+# DESIGN DOCUMENT
+# Accounting Service Operating System
+## Business-Workflow-First Design for Small Service Companies
 
-> **Phiên bản:** 1.0  
-> **Mục tiêu:** Đây là tài liệu tổng hợp cuối cùng cho giai đoạn đánh giá và khởi động startup. Tài liệu trả lời từ gốc: khách hàng là ai, họ đang gặp vấn đề gì, thị trường đã có ai, chúng ta khác gì, dịch vụ đầu tiên nên là gì, cách kiếm tiền, cách vận hành, cách dùng AI, lộ trình 12 tháng và tiêu chí Go/No-Go.
-
----
-
-# 1. Executive Summary
-
-Ý tưởng cốt lõi không phải là xây một “MISA mới”, cũng không phải là mở một công ty kế toán truyền thống rồi thêm ChatGPT.
-
-Startup này nên được định nghĩa như sau:
-
-> **Một phòng kế toán/finance back-office thuê ngoài dành cho doanh nghiệp nhỏ, nơi con người chịu trách nhiệm nghiệp vụ còn công nghệ và AI đảm nhận phần việc lặp lại, kiểm tra, đối chiếu và theo dõi.**
-
-Khách hàng không mua AI. Họ mua một kết quả:
-
-> **“Tôi không phải tự quản phòng kế toán nhưng vẫn biết mọi thứ đang được kiểm soát, thiếu gì, có vấn đề gì và tài chính công ty đang thế nào.”**
-
-Thị trường đã có rất nhiều đối thủ mạnh. MISA ASP hiện công bố hàng chục nghìn khách hàng doanh nghiệp, hàng nghìn đối tác và đang đẩy rất mạnh vào tự động hóa, quản lý khách hàng và ứng dụng cho cả kế toán dịch vụ lẫn chủ doanh nghiệp. Vì vậy, **“kế toán online + AI + app” không phải khoảng trống thị trường**.
-
-Các công ty dịch vụ kế toán Việt Nam cũng cạnh tranh rất mạnh về giá. Savitax công bố dịch vụ từ 500.000 đồng/tháng và cho biết đang đồng hành cùng hơn 5.000 doanh nghiệp. Do đó, **“rẻ hơn” không phải chiến lược tốt cho một startup ít vốn**.
-
-Ở quốc tế, mô hình software + human expert đã được chứng minh bởi Bench, Pilot, Kruze và Bookkeeper360. Điểm chung đáng chú ý là những công ty này không thắng chỉ vì công nghệ; họ thắng bằng **productization + specialization + service ladder**.
-
-Vì vậy hướng hợp lý nhất là:
-
-> **Không phục vụ mọi doanh nghiệp. Chọn một nhóm khách hàng đủ cụ thể, phục vụ sâu hơn các lựa chọn hiện tại, dùng dịch vụ để học workflow, dùng automation để giảm cost, rồi mở rộng từ Accounting → Finance Control → Virtual Controller/CFO.**
-
-Hai hướng nên test đầu tiên:
-
-1. **Finance & Accounting Operations cho doanh nghiệp dịch vụ có nghiệp vụ cross-border/contract-based**, đặc biệt nhóm immigration, consulting, professional services.
-2. **Virtual Accounting Controller cho SME đã có kế toán nhưng thiếu một kế toán trưởng/controller đủ mạnh.**
+**Version:** 2.0  
+**Status:** Proposed  
+**Audience:** Founder / Product / Engineering / Accounting Lead  
+**Primary user:** Internal accounting team serving many small service companies  
+**Secondary user:** Business owner / customer  
+**Design principle:** Understand the accounting workflow first. Code second.
 
 ---
 
-# 2. Founding Advantage — Vì sao đội ngũ này có quyền thử bài toán này?
+# 1. Why This Document Exists
 
-Startup có một lợi thế rất cụ thể nếu một founder mạnh về công nghệ và người còn lại là kế toán trưởng.
+This system must not be designed from technical modules first.
 
-## Founder công nghệ
-
-Có khả năng:
-
-- nhìn workflow như một hệ thống;
-- tích hợp dữ liệu;
-- tự động hóa công việc lặp lại;
-- xây phần mềm;
-- dùng AI/LLM;
-- biến quy trình thành rule;
-- biến rule thành hệ thống chạy lặp lại ở quy mô lớn.
-
-## Kế toán trưởng
-
-Có khả năng:
-
-- hiểu nghiệp vụ kế toán thật;
-- hiểu thuế;
-- hiểu closing;
-- hiểu chứng từ;
-- đánh giá rủi ro;
-- biết một case nào cần judgment;
-- xây SOP;
-- review và chịu trách nhiệm chuyên môn.
-
-Khi kết hợp:
+The correct order is:
 
 ```text
-Kinh nghiệm kế toán
+What happens in real accounting work?
         ↓
-SOP
+Who performs each step?
         ↓
-Rule
+What data enters each step?
         ↓
-Automation
+What decision must be made?
         ↓
-Hệ thống chạy cho nhiều khách hàng
+What can be automated?
+        ↓
+What requires accountant judgment?
+        ↓
+What state does the work move to?
+        ↓
+Then design software
 ```
 
-Đây là lợi thế founder-market fit thực tế hơn nhiều so với việc chỉ “biết AI”.
+The product is not initially an accounting ERP.
+
+The product is an:
+
+> **Accounting Service Operating System**
+
+Its job is to help an outsourced accounting company operate many small customers consistently, transparently, and efficiently.
+
+The first customer segment is:
+
+- service company;
+- 1–20 employees;
+- low accounting complexity;
+- no manufacturing;
+- no complex inventory;
+- roughly 10–200 accounting documents per month;
+- typically uses MISA, FAST, Excel or outsourced accounting already.
 
 ---
 
-# 3. Khách hàng của chúng ta là ai?
+# 2. The Simplest Mental Model
 
-Không nên nói chung chung là “SME”.
-
-## 3.1. Persona 1 — Doanh nghiệp dịch vụ rất nhỏ
-
-Quy mô điển hình:
-
-- 3–20 nhân sự;
-- 10–200 chứng từ/tháng;
-- 1–3 tài khoản ngân hàng;
-- không có inventory/costing phức tạp;
-- không muốn tuyển cả phòng kế toán.
-
-Ngành có thể gồm:
-
-- consulting;
-- agency;
-- software service;
-- education;
-- immigration;
-- professional services;
-- small trading đơn giản.
-
-Người mua thường là:
-
-> **Founder / Owner / Director**
-
-Họ không muốn trở thành chuyên gia kế toán.
-
----
-
-## 3.2. Persona 2 — SME đã có 1–3 kế toán
-
-Họ không thiếu người nhập liệu.
-
-Họ thiếu:
-
-- kiểm soát;
-- review;
-- kế toán trưởng mạnh;
-- cái nhìn xuyên suốt;
-- cảnh báo rủi ro;
-- báo cáo quản trị.
-
-Đây là khách hàng phù hợp cho dịch vụ **Virtual Controller**.
-
----
-
-## 3.3. Persona 3 — Công ty đang thuê dịch vụ kế toán truyền thống
-
-Họ đã giải quyết được bài toán:
-
-> “Có người làm giúp.”
-
-Nhưng có thể vẫn chưa giải quyết tốt:
-
-- visibility;
-- tốc độ;
-- chủ động;
-- continuous control;
-- business-specific reporting;
-- integration giữa contract, bank, AR/AP và accounting.
-
-Đây là nhóm dễ chuyển đổi nếu chúng ta tạo trải nghiệm tốt hơn rõ ràng.
-
----
-
-# 4. Khách hàng hiện đang làm như thế nào?
-
-Hãy lấy một công ty dịch vụ 10 người.
-
-Mỗi tháng họ có:
-
-- hóa đơn đầu vào;
-- hóa đơn đầu ra;
-- giao dịch ngân hàng;
-- payroll;
-- hợp đồng;
-- biên bản;
-- công nợ;
-- đôi khi có thanh toán ngoại tệ.
-
-Quy trình hiện tại thường là:
+For a small service company, accounting operations can be understood as five loops:
 
 ```text
-Phát sinh giao dịch
-       ↓
-Email / Zalo / Drive / Bank / Excel
-       ↓
-Cuối tháng gom chứng từ
-       ↓
-Gửi cho kế toán
-       ↓
-Kế toán kiểm tra
-       ↓
-Thiếu gì thì hỏi lại
-       ↓
-Khách tìm và gửi tiếp
-       ↓
-Đối chiếu
-       ↓
-Khai thuế
-       ↓
-Closing
-       ↓
-Báo cáo
+1. Collect
+   Get documents and transaction data.
+
+2. Understand
+   Determine what each document/transaction means.
+
+3. Record
+   Prepare the accounting treatment.
+
+4. Reconcile
+   Check that accounting records agree with reality.
+
+5. Close & Report
+   Finish the month, tax obligations, and reports.
 ```
 
-Quy trình này không sai, nhưng nó tạo ra rất nhiều ma sát.
+Everything in the system should support one of those five loops.
 
 ---
 
-# 5. Khó khăn thật sự của khách hàng
+# 3. People in the System
 
-## 5.1. Không biết đã đủ chứng từ hay chưa
+There are only five important actors initially.
 
-Khách không biết:
+## 3.1 Client Owner
 
-- hóa đơn nào đã gửi;
-- khoản thanh toán nào chưa có chứng từ;
-- hợp đồng nào thiếu;
-- hồ sơ nào kế toán đang chờ.
+The business owner.
 
-Vấn đề thường chỉ lộ ra gần deadline.
+They care about:
+
+- what they need to provide;
+- what tax/payment is due;
+- whether the month is completed;
+- whether there is a serious problem;
+- simple financial visibility.
+
+They do **not** need to see accounting implementation details.
 
 ---
 
-## 5.2. Không biết kế toán đang làm tới đâu
+## 3.2 Client Staff
 
-Thông tin thường nằm trong đầu hoặc chat của người phụ trách.
+An employee of the customer who may:
 
-Khách không thấy:
+- upload documents;
+- confirm transactions;
+- provide contracts;
+- answer accounting questions.
+
+---
+
+## 3.3 Accountant
+
+Performs daily accounting work.
+
+Typical work:
+
+- review documents;
+- classify transactions;
+- create accounting drafts;
+- reconcile bank;
+- follow up missing information;
+- execute closing checklist.
+
+---
+
+## 3.4 Senior Accountant / Chief Accountant
+
+Handles judgment and risk.
+
+Typical work:
+
+- unusual accounting treatment;
+- tax-sensitive issues;
+- large transactions;
+- final closing review;
+- final report review.
+
+---
+
+## 3.5 System
+
+The software.
+
+It should:
+
+- collect;
+- parse;
+- normalize;
+- detect duplicates;
+- match;
+- apply deterministic rules;
+- generate suggestions;
+- create tasks;
+- monitor deadlines;
+- surface exceptions.
+
+The system must not silently make high-risk accounting decisions.
+
+---
+
+# 4. What a Real Month Looks Like
+
+Assume customer:
 
 ```text
-Tháng 9 đã hoàn thành 87%
+ABC Digital Co., Ltd.
+15 employees
+service company
+2 bank accounts
+80 invoices/documents per month
+uses MISA
 ```
 
-hay:
+A typical month is:
 
 ```text
-Còn 3 việc đang chờ khách.
+During month
+├── sales invoices happen
+├── purchase invoices arrive
+├── bank transactions happen
+├── employees spend money
+├── payroll happens
+├── customer payments arrive
+└── supplier payments happen
+
+Month end
+├── check all documents are collected
+├── check bank transactions
+├── check receivables
+├── check payables
+├── check payroll
+├── check revenue/expense completeness
+├── prepare tax
+├── review anomalies
+├── senior review
+└── close month
 ```
 
----
-
-## 5.3. Phát hiện vấn đề quá muộn
-
-Ví dụ:
-
-- công nợ quá hạn;
-- cash sắp thiếu;
-- chi phí tăng bất thường;
-- transaction chưa match;
-- thiếu supporting document.
-
-Nếu chỉ biết vào cuối tháng/quý thì giá trị quản trị thấp.
+The system must represent this workflow explicitly.
 
 ---
 
-## 5.4. Chủ doanh nghiệp không hiểu ngôn ngữ kế toán
+# 5. Core Business Object: Accounting Case
 
-Owner không muốn biết:
+The most useful abstraction is not "invoice".
+
+It is an:
+
+> **Accounting Case**
+
+A case represents one piece of accounting work that must eventually be resolved.
+
+Examples:
 
 ```text
-TK 131 / 331 / Dr / Cr
-```
-
-Họ muốn biết:
-
-```text
-Ai chưa trả tiền?
-Tôi đang nợ ai?
-Thuế dự kiến bao nhiêu?
-Cash đủ bao lâu?
-Tôi cần xử lý việc gì?
-```
-
----
-
-## 5.5. Phụ thuộc vào cá nhân
-
-Nếu toàn bộ lịch sử, file và logic nằm trong đầu một kế toán viên thì việc nghỉ việc hoặc đổi người tạo ra rủi ro lớn.
-
----
-
-## 5.6. Cost scale tuyến tính
-
-Mô hình truyền thống thường gần giống:
-
-```text
-thêm khách
-→ thêm nhân sự
-→ thêm chi phí
-```
-
-Nếu startup không phá được mối quan hệ này thì AI không tạo lợi thế kinh tế đáng kể.
-
----
-
-# 6. Bài toán startup sinh ra để giải quyết
-
-Một câu duy nhất:
-
-> **Giúp doanh nghiệp nhỏ có một bộ phận accounting/finance được vận hành bài bản mà không phải tự xây và tự quản đội ngũ đó.**
-
-Cụ thể, chúng ta chịu trách nhiệm:
-
-- nhận dữ liệu;
-- kiểm tra;
-- hạch toán;
-- đối chiếu;
-- theo dõi công nợ;
-- closing;
-- tax operations trong phạm vi dịch vụ;
-- reporting;
-- phát hiện exception;
-- chủ động yêu cầu khách xử lý những việc cần thiết.
-
-Khách hàng chỉ nhìn thấy:
-
-> **What is done? What is missing? What is wrong? What do I need to do?**
-
----
-
-# 7. Dịch vụ đầu tiên nên là gì?
-
-Không nên tung ra quá nhiều dịch vụ cùng lúc.
-
-## 7.1. Core Service — Managed Accounting Operations
-
-Dành cho doanh nghiệp dịch vụ nhỏ.
-
-Bao gồm:
-
-- bookkeeping định kỳ;
-- quản lý chứng từ;
-- bank reconciliation;
-- AR/AP tracking;
-- monthly closing;
-- tax checklist;
-- reporting;
-- owner action list.
-
-Điểm khác biệt không phải phạm vi nghiệp vụ — vì thị trường đã có.
-
-Điểm khác biệt là **cách delivery**:
-
-```text
-continuous
-proactive
-visible
-exception-driven
-```
-
----
-
-# 8. Trải nghiệm khách hàng nên như thế nào?
-
-Khách không cần vào phần mềm kế toán để xem sổ cái.
-
-Họ mở dashboard và thấy:
-
-```text
-THÁNG 09
-
-Accounting progress            92%
-
-Documents received              83
-Documents missing                3
-Transactions need confirmation   2
-
-Tax estimate                  41m
-Overdue receivables           72m
-```
-
-Bên dưới:
-
-```text
-VIỆC ANH/CHỊ CẦN LÀM
-
-1. Gửi hợp đồng ABC.
-2. Xác nhận khoản chuyển 18 triệu.
-3. Duyệt payroll.
-```
-
-Đây là trải nghiệm cần bán.
-
----
-
-# 9. AI đóng vai trò gì?
-
-AI không phải sản phẩm.
-
-AI là leverage.
-
-Nó giúp:
-
-- đọc tài liệu;
-- extract thông tin;
-- phân loại;
-- hỗ trợ matching;
-- đề xuất hạch toán;
-- phát hiện trường hợp bất thường;
-- tạo bản nháp giải thích;
-- giảm các câu hỏi support đơn giản.
-
-Nhưng nguyên tắc phải là:
-
-```text
-Code xử lý certainty.
-AI xử lý ambiguity.
-Human xử lý judgment/accountability.
-```
-
-Ví dụ:
-
-| Việc | Cách xử lý |
-|---|---|
-| Parse XML | Code |
-| Duplicate invoice | Database |
-| Tính VAT | Code |
-| Nhận dạng nội dung scan | AI |
-| Phân loại vendor mới | AI + Rule |
-| Case thuế phức tạp | Human |
-| Final approval | Human |
-
----
-
-# 10. Không nên tự build model ở giai đoạn đầu
-
-Không cần train OCR hay LLM riêng.
-
-Có thể dùng:
-
-- OpenAI API;
-- structured outputs;
-- vision/file understanding;
-- rule engine;
-- database validation.
-
-Tập trung nguồn lực vào:
-
-- workflow;
-- exception queue;
-- customer experience;
-- rule;
-- audit trail;
-- integration.
-
----
-
-# 11. Thị trường Việt Nam hiện đã có gì?
-
-## 11.1. MISA ASP
-
-MISA ASP đang là một hệ sinh thái rất mạnh cho kế toán dịch vụ.
-
-Trang chính hiện công bố:
-
-- 84.964 khách hàng doanh nghiệp;
-- 15.014 khách hàng hộ kinh doanh;
-- 13.912 đối tác;
-- 278.224 người dùng.
-
-MISA cũng đang triển khai:
-
-- quản lý khách hàng tập trung;
-- app cho đơn vị kế toán dịch vụ;
-- app cho chủ doanh nghiệp;
-- import sao kê ngân hàng;
-- kiểm soát rủi ro;
-- các tính năng tự động hóa.
-
-### Ý nghĩa
-
-Khoảng trống không phải là:
-
-> “Làm một app kế toán dịch vụ có dashboard.”
-
-MISA đã đi rất xa ở đó.
-
----
-
-# 12. Savitax và nhóm dịch vụ kế toán quy mô lớn
-
-Savitax công bố:
-
-- hơn 15 năm kinh nghiệm;
-- hơn 5.000 doanh nghiệp;
-- dịch vụ từ khoảng 500.000 đồng/tháng;
-- phần mềm kế toán online;
-- nhóm chuyên viên phụ trách riêng kế toán, thuế và BHXH.
-
-### Ý nghĩa
-
-Không thể lấy:
-
-```text
-online
-remote
-team support
-giá thấp
-```
-
-làm differentiation.
-
----
-
-# 13. Marketplace MISA ASP cho thấy cạnh tranh rất đông
-
-Tại thời điểm khảo sát, MISA ASP hiển thị các đối tác với số khách hàng như:
-
-| Đơn vị | Khách hàng hiển thị trên MISA ASP |
-|---|---:|
-| An Khang | 823 |
-| Savitax | 579 |
-| Tây Nam Á | 416 |
-| An Hiểu Minh | 387 |
-| Tâm Minh | 343 |
-
-Đây không phải tổng khách hàng lịch sử của từng đơn vị; nó cho thấy marketplace đã có nhiều provider quy mô đáng kể.
-
-### Kết luận
-
-> **Basic outsourced accounting là thị trường đông và cạnh tranh cao.**
-
----
-
-# 14. Benchmark quốc tế
-
-## 14.1. Bench
-
-Bench kết hợp:
-
-```text
-Software
-+
-Bookkeeping team
-```
-
-Bench hiện công bố các gói từ khoảng:
-
-- $199/tháng cho business nhỏ;
-- $399/tháng cho bookkeeping core;
-- $599/tháng cho bookkeeping + tax.
-
-Bench nói hơn 35.000 business owners đã sử dụng dịch vụ.
-
-### Bài học
-
-Small business accounting có thể productize và scale.
-
----
-
-## 14.2. Pilot
-
-Pilot tập trung vào:
-
-- startup;
-- growth company;
-- bookkeeping;
-- tax;
-- controller;
-- CFO.
-
-### Bài học
-
-Một company có thể dùng bookkeeping làm entry point rồi mở rộng lên service giá trị cao.
-
----
-
-## 14.3. Kruze
-
-Kruze định vị rất hẹp:
-
-> **VC-backed startups từ Pre-Seed đến Series C.**
-
-Họ công bố đã phục vụ khoảng 2.000 VC-backed startups.
-
-### Bài học
-
-Specialization có thể tạo brand và pricing power.
-
----
-
-## 14.4. Bookkeeper360
-
-Bookkeeper360 cung cấp:
-
-- bookkeeping từ $399/tháng;
-- weekly accounting từ $599/tháng;
-- fractional CFO từ $2.000/tháng;
-- payroll;
-- AR/AP;
-- back-office services.
-
-### Bài học
-
-Service ladder rất rõ:
-
-```text
-Bookkeeping
-   ↓
-Back Office
-   ↓
-Tax
-   ↓
-CFO
-```
-
----
-
-# 15. Competitive Conclusion
-
-Có ba điều phải chấp nhận:
-
-### 1. Ý tưởng không mới
-
-Software + accounting service + automation đã tồn tại.
-
-### 2. Không thể thắng bằng giá
-
-Đối thủ Việt Nam đã có scale lớn và mức giá thấp.
-
-### 3. Không thể thắng bằng AI chung chung
-
-AI đang trở thành feature tiêu chuẩn.
-
-Vậy lợi thế phải đến từ:
-
-> **Phục vụ một nhóm cụ thể sâu hơn, đơn giản hơn và hiệu quả hơn.**
-
----
-
-# 16. Battlefield nên tránh
-
-Không nên:
-
-- xây MISA mới;
-- làm ERP;
-- làm phần mềm kế toán tổng quát;
-- phục vụ tất cả ngành;
-- cạnh tranh bằng 500k/tháng;
-- lấy “AI” làm thông điệp chính;
-- build 12 tháng trước khi có khách.
-
----
-
-# 17. Battlefield nên chọn
-
-## Option A — Vertical Accounting / Finance Operations
-
-Chọn một ngành có workflow tài chính đặc thù.
-
-Ví dụ:
-
-- immigration;
-- consulting;
-- professional services;
-- agency;
-- software services.
-
-Không chỉ hiểu accounting.
-
-Phải hiểu business flow của ngành.
-
----
-
-# 18. Candidate tốt nhất để test: Immigration / Cross-border Professional Services
-
-Đây là nhóm có thể có các nghiệp vụ:
-
-```text
-Service contract
-↓
-Payment milestones
-↓
-Client receivable
-↓
-Foreign partner
-↓
-Lawyer fee
-↓
-FX payment
-↓
+Purchase invoice received
+Bank transaction received
+Sales invoice issued
+Missing contract
+Unknown bank transfer
+Payroll file uploaded
 Refund
+Foreign payment
+```
+
+Every case moves through a lifecycle.
+
+---
+
+# 6. Accounting Case Lifecycle
+
+```text
+NEW
 ↓
-Revenue recognition
+DATA_READY
 ↓
-Tax
+UNDERSTOOD
+↓
+ACCOUNTING_PREPARED
+↓
+REVIEW_REQUIRED / READY
+↓
+APPROVED
+↓
+RECORDED
+↓
+RECONCILED
+↓
+CLOSED
 ```
 
-Điểm khác biệt lớn:
-
-> Accounting firm thường bắt đầu từ hóa đơn và bank.
->
-> Chúng ta có thể bắt đầu từ **business transaction / client case**.
-
----
-
-# 19. Dịch vụ cho vertical này có thể là gì?
-
-## Finance & Accounting Operations for Immigration Companies
-
-Bao gồm:
-
-- bookkeeping;
-- tax operations;
-- contract/milestone tracking;
-- client AR;
-- foreign partner payable;
-- FX tracking;
-- refund tracking;
-- supporting document control;
-- case profitability;
-- monthly financial review.
-
-Khách hàng không chỉ biết:
-
-> “BCTC thế nào?”
-
-Họ biết:
+Possible exception states:
 
 ```text
-Case nào chưa thu đủ?
-Case nào có refund risk?
-Bao nhiêu USD cần trả partner?
-Margin từng chương trình?
-Cash 60 ngày tới?
+WAITING_CLIENT
+NEED_ACCOUNTANT
+NEED_SENIOR
+BLOCKED
+REJECTED
 ```
 
-Đây là value cao hơn bookkeeping.
+This state machine should be central to the implementation.
 
 ---
 
-# 20. Candidate thứ hai: Virtual Accounting Controller
+# 7. Step 1 — COLLECT
 
-Khách hàng:
+Goal:
 
-- 20–100 nhân viên;
-- đã có kế toán;
-- chưa có kế toán trưởng/controller mạnh.
+> Get all source data required to account for the company's activities.
 
-Chúng ta không nhập liệu thay họ.
-
-Chúng ta review:
-
-- ledger;
-- bank;
-- AR/AP;
-- tax;
-- closing;
-- unusual transactions;
-- balance sheet issues.
-
-Mỗi tuần CEO nhận:
+Sources:
 
 ```text
-High-risk issues
-Medium-risk issues
-Items requiring action
+Sales invoices
+Purchase invoices
+Bank statements
+Contracts
+Payroll
+Receipts
+Payment requests
+Acceptance records
+Other supporting documents
 ```
 
-### Vì sao đáng test?
-
-Khách không so chúng ta với gói kế toán 500k.
-
-Họ so với:
-
-> Tuyển một kế toán trưởng/controller.
-
-Đây là thị trường có khả năng willingness-to-pay cao hơn.
-
----
-
-# 21. Candidate thứ ba: Micro-business Accounting
-
-Khách:
-
-- 1–5 người;
-- <50 chứng từ/tháng.
-
-Ưu điểm:
-
-- thị trường lớn;
-- dễ automate;
-- volume cao.
-
-Nhược điểm:
-
-- price war;
-- support cost có thể giết margin;
-- đối thủ đã có scale.
-
-### Kết luận
-
-Không nên lấy đây làm wedge đầu tiên.
-
-Sau này khi automation engine đủ mạnh thì có thể quay lại.
-
----
-
-# 22. Service Ladder đề xuất
-
-## Tier 1 — Accounting Operations
-
-Mục tiêu:
-
-> Acquire customer.
-
-Bao gồm:
-
-- bookkeeping;
-- compliance;
-- document control;
-- monthly closing.
-
----
-
-## Tier 2 — Finance Control
-
-Mục tiêu:
-
-> Differentiation.
-
-Bao gồm thêm:
-
-- bank reconciliation;
-- AR/AP;
-- proactive missing-document control;
-- anomalies;
-- dashboard;
-- owner action list.
-
-Đây nên là main product.
-
----
-
-## Tier 3 — Virtual Controller
-
-Mục tiêu:
-
-> Higher ARPU / higher margin.
-
-Bao gồm:
-
-- senior accounting review;
-- closing review;
-- tax review;
-- balance-sheet review;
-- monthly management report.
-
----
-
-## Tier 4 — Virtual CFO
-
-Chỉ khi khách hàng bắt đầu cần:
-
-- budget;
-- forecast;
-- scenarios;
-- cash planning;
-- management support.
-
-Không nên launch từ ngày đầu.
-
----
-
-# 23. Pricing Strategy
-
-Không nên định giá chỉ dựa trên doanh thu.
-
-Các driver thực tế:
-
-- số chứng từ;
-- số bank transactions;
-- payroll headcount;
-- số bank accounts;
-- số legal entities;
-- FX/cross-border;
-- complexity;
-- frequency of reporting;
-- senior review requirement.
-
-Pricing ban đầu nên được thử nghiệm.
-
-Không nên tự trói vào mức 500.000–1.000.000 đồng nếu service khác biệt rõ.
-
----
-
-# 24. Unit Economics
-
-Đây là phép thử sống còn.
-
-Ví dụ:
+Data may come from:
 
 ```text
-Revenue/client
-- accountant labor
-- senior review
-- AI/API
-- infrastructure
-- support
-= contribution margin
+Upload
+Email
+MISA export
+FAST export
+Bank CSV/XLSX
+E-invoice XML
+Manual entry
+API
 ```
 
-KPI cốt lõi:
-
-> **Human Minutes per Client per Month**
-
-Nếu automation không làm con số này giảm, business không có leverage công nghệ.
-
 ---
 
-# 25. North Star Metric
-
-> **Số khách hàng được phục vụ an toàn trên mỗi accounting professional.**
-
-Không chỉ đo volume.
-
-Phải giữ:
-
-- accuracy;
-- SLA;
-- retention;
-- quality.
-
----
-
-# 26. Operating Principle — Exception-Based Accounting
-
-Mục tiêu dài hạn:
+# 8. Collection Workflow
 
 ```text
-Normal cases
-→ system handles/prepares
-
-Exceptions
-→ human reviews
+Source arrives
+    ↓
+Create Intake Record
+    ↓
+Store original file/data
+    ↓
+Calculate fingerprint
+    ↓
+Duplicate?
+ ┌──┴───┐
+Yes     No
+ ↓       ↓
+Link   Continue
+        ↓
+Identify document/source type
+        ↓
+Create Accounting Case
 ```
 
-Không phải:
+Important:
+
+The original source must never be lost.
+
+---
+
+# 9. Duplicate Handling
+
+Example:
+
+Client uploads the same invoice three times.
+
+System behavior:
 
 ```text
-Human reviews every line forever
+Invoice A
+same XML invoice number
+same seller tax code
+same date
+same amount
+        ↓
+duplicate candidate
+        ↓
+do NOT create three accounting entries
 ```
 
-Đây là điểm có thể tạo cost advantage.
-
----
-
-# 27. Customer Acquisition Strategy
-
-Không chạy ads lớn ngay.
-
-10 khách đầu tiên nên đến từ:
-
-- network cá nhân;
-- network kế toán trưởng;
-- founder communities;
-- referral;
-- đối tác luật/doanh nghiệp;
-- vertical communities.
-
-Mục tiêu:
-
-> **Học workflow thật.**
-
----
-
-# 28. 10 khách đầu tiên phải giúp trả lời gì?
-
-Với mỗi khách phải đo:
-
-- họ gửi data như thế nào;
-- missing docs phổ biến;
-- số giờ xử lý;
-- số câu hỏi support;
-- số exception;
-- workflow nào lặp lại;
-- willingness to pay;
-- feature nào thực sự có giá trị.
-
----
-
-# 29. 90-Day Experiment
-
-## Test 1 — Vertical Operations
-
-Lấy:
+Possible result:
 
 ```text
-5 khách immigration/cross-border services
+ORIGINAL
+DUPLICATE_REFERENCE
 ```
 
-Offer:
+An accountant may override if needed.
 
-> Finance & Accounting Operations.
+---
 
-## Test 2 — Virtual Controller
+# 10. Step 2 — UNDERSTAND
 
-Lấy:
+Now the system answers:
+
+> "What is this?"
+
+Example purchase invoice:
 
 ```text
-5 SME đã có kế toán
+Vendor: AWS
+Amount: 22,000,000
+Description: cloud services
+VAT: ...
+Date: ...
 ```
 
-Offer:
-
-> Accounting Controller as a Service.
-
-Đo cùng bộ KPI:
-
-- sales cycle;
-- willingness to pay;
-- human hours;
-- retention intent;
-- repeatability;
-- support load;
-- gross margin potential.
-
----
-
-# 30. Go / No-Go Criteria
-
-## GO nếu
-
-- khách renew;
-- workflow lặp lại cao;
-- automation giảm rõ thời gian;
-- khách chấp nhận giá;
-- support không tăng tuyến tính;
-- có khả năng upsell.
-
-## PIVOT nếu
-
-- mỗi khách là một dự án custom;
-- khách chỉ mua vì giá thấp;
-- founder/accountant phải xử lý quá nhiều thủ công;
-- AI không giảm được labor;
-- acquisition quá khó.
-
----
-
-# 31. 12-Month Roadmap
-
-## Month 1–3 — Discover
-
-Mục tiêu:
-
-- 5–10 paying clients;
-- không build nhiều;
-- hiểu workflow;
-- viết SOP.
-
-## Month 4–6 — Standardize
-
-Mục tiêu:
-
-- một vertical rõ hơn;
-- standardized onboarding;
-- standardized close;
-- standardized reporting.
-
-## Month 7–9 — Automate
-
-Automate:
-
-- document intake;
-- extraction;
-- matching;
-- missing docs;
-- repetitive bookkeeping suggestions;
-- customer status.
-
-## Month 10–12 — Prove Economics
-
-Mục tiêu:
-
-- 30–100 clients tùy loại service;
-- đo contribution margin;
-- đo clients/accountant;
-- xác định có nên scale acquisition.
-
----
-
-# 32. Những thứ KHÔNG cần build trong năm đầu
-
-Không cần:
-
-- custom LLM;
-- custom OCR;
-- ERP;
-- payroll engine;
-- inventory;
-- accounting ledger mới;
-- microservices phức tạp.
-
-Có thể dùng:
-
-- MISA/FAST;
-- bank exports;
-- e-invoice;
-- Google Drive;
-- OpenAI API;
-- một internal platform đơn giản.
-
----
-
-# 33. Những thứ nên tự build
-
-Chỉ tự build thứ tạo leverage:
-
-- workflow;
-- exception queue;
-- rule engine;
-- client action list;
-- review;
-- integrations;
-- audit trail;
-- operational metrics.
-
----
-
-# 34. Legal / Compliance
-
-Kinh doanh dịch vụ kế toán tại Việt Nam là ngành có điều kiện.
-
-Bộ Tài chính vẫn công bố danh sách doanh nghiệp đủ điều kiện kinh doanh dịch vụ kế toán và danh sách các doanh nghiệp bị cảnh báo/thu hồi.
-
-Một ví dụ cảnh báo trong năm 2026 là doanh nghiệp không duy trì tối thiểu 02 kế toán viên hành nghề.
-
-Vì vậy trước khi cung cấp dịch vụ chính thức phải rà soát:
-
-- loại hình doanh nghiệp;
-- giấy chứng nhận đủ điều kiện;
-- kế toán viên hành nghề;
-- hợp đồng dịch vụ;
-- trách nhiệm nghề nghiệp;
-- bảo mật dữ liệu;
-- phân quyền;
-- lưu trữ hồ sơ.
-
-Không nên coi đây chỉ là startup công nghệ.
-
----
-
-# 35. Risk Register
-
-## Price War
-
-Mitigation:
-
-> Không target basic generalist accounting ngay.
-
-## AI Error
-
-Mitigation:
-
-> AI prepares; human approves.
-
-## Support Overload
-
-Mitigation:
-
-> Client status + proactive action list + standardized service.
-
-## Customization Explosion
-
-Mitigation:
-
-> One vertical, clear scope.
-
-## Dependence on Founder
-
-Mitigation:
-
-> SOP + workflow + rule + audit trail.
-
-## Strong Incumbents
-
-Mitigation:
-
-> Do not fight breadth; fight depth.
-
----
-
-# 36. Moat
-
-Ngày đầu gần như không có moat.
-
-Moat hình thành theo thời gian.
-
-## 0–50 khách
-
-- workflow knowledge;
-- SOP;
-- customer understanding.
-
-## 50–500 khách
-
-- rules;
-- historical corrections;
-- vertical templates;
-- automation;
-- integrations.
-
-## 500+ khách
-
-- data flywheel;
-- brand;
-- distribution;
-- cost advantage;
-- specialist network.
-
----
-
-# 37. Data Flywheel
+The system needs to identify:
 
 ```text
-More customers
+document type
+counterparty
+amount
+currency
+invoice number
+date
+tax
+business description
+related contract/project if any
+```
+
+---
+
+# 11. Structured Data First
+
+If the source is XML/API/CSV:
+
+```text
+parse deterministically
+```
+
+If it is image/scanned PDF:
+
+```text
+use document extraction / AI
+```
+
+Never use AI where a reliable structured source exists.
+
+Order:
+
+```text
+XML
+→ API
+→ CSV/XLSX
+→ searchable PDF
+→ scan
+→ image
+```
+
+---
+
+# 12. Normalized Document
+
+All sources become one canonical structure.
+
+Example:
+
+```json
+{
+  "type": "PURCHASE_INVOICE",
+  "invoiceNumber": "000123",
+  "documentDate": "2026-09-05",
+  "seller": {
+    "name": "ABC Cloud",
+    "taxCode": "031..."
+  },
+  "currency": "VND",
+  "subtotal": 20000000,
+  "tax": 2000000,
+  "total": 22000000,
+  "description": "Cloud service",
+  "sourceDocumentId": "..."
+}
+```
+
+The normalized document is not yet an accounting entry.
+
+It only represents:
+
+> "What does the source document say?"
+
+---
+
+# 13. Validation After Extraction
+
+System performs deterministic checks:
+
+```text
+required fields exist?
+subtotal + tax = total?
+invoice number exists?
+date valid?
+currency valid?
+seller identifiable?
+```
+
+If invalid:
+
+```text
+NEED_ACCOUNTANT
+```
+
+or:
+
+```text
+WAITING_CLIENT
+```
+
+depending on the issue.
+
+---
+
+# 14. Step 3 — DETERMINE ACCOUNTING MEANING
+
+Now the question changes from:
+
+> "What is this document?"
+
+to:
+
+> "How should this be accounted for?"
+
+Example:
+
+```text
+AWS invoice
+→ cloud service expense
+→ software / IT operating expense
+→ payable to vendor
+```
+
+This is accounting classification.
+
+---
+
+# 15. Accounting Decision Layers
+
+Use this order:
+
+```text
+1. Exact known rule
+2. Historical mapping
+3. Deterministic business rule
+4. AI suggestion
+5. Accountant judgment
+6. Senior judgment
+```
+
+Never jump directly to AI.
+
+---
+
+# 16. Example Classification Flow
+
+```text
+Purchase invoice received
+        ↓
+Vendor already known?
+        │
+   ┌────┴────┐
+  Yes        No
+   ↓          ↓
+Known mapping AI/rule suggests
+   ↓          ↓
+Amount unusual?
+   │
+┌──┴──┐
+No    Yes
+↓      ↓
+Ready Review Required
+```
+
+---
+
+# 17. Journal Draft
+
+The system must never treat an AI answer as a posted accounting entry.
+
+It creates a:
+
+```text
+Journal Draft
+```
+
+Example:
+
+```text
+Debit: Expense
+Credit: Accounts Payable
+Amount: 22,000,000
+Vendor: AWS
+Source: invoice 000123
+Reason: vendor rule CLOUD_PROVIDER
+```
+
+Draft means:
+
+> proposed accounting treatment.
+
+---
+
+# 18. Journal Draft Validation
+
+Before review:
+
+```text
+Debit == Credit
+Account exists
+Account is active
+Period is open
+Party exists if required
+Amount matches source
+Tax fields are valid
+```
+
+If validation fails:
+
+```text
+BLOCKED
+```
+
+---
+
+# 19. Risk Classification
+
+Every case gets a risk level.
+
+## Low
+
+Examples:
+
+```text
+known recurring vendor
+same account as previous months
+small amount
+complete supporting documents
+```
+
+## Medium
+
+Examples:
+
+```text
+new vendor
+unusual amount
+new expense type
+missing optional context
+```
+
+## High
+
+Examples:
+
+```text
+foreign transaction
+related-party transaction
+refund
+large manual journal
+tax-sensitive issue
+revenue adjustment
+unusual contract
+```
+
+---
+
+# 20. Review Routing
+
+```text
+LOW
+→ accountant quick review
+
+MEDIUM
+→ accountant full review
+
+HIGH
+→ senior/chief accountant review
+```
+
+The goal is:
+
+> humans spend time where risk is highest.
+
+---
+
+# 21. Client Question Flow
+
+Sometimes accounting cannot continue without the customer.
+
+Example bank transaction:
+
+```text
+Transfer OUT: 18,000,000
+Description: "CK THANH TOAN"
+No matching invoice
+Unknown counterparty
+```
+
+System creates:
+
+```text
+Client Action
+```
+
+Example:
+
+> "Please confirm what the 18,000,000 VND bank transfer on 12 Sep was for."
+
+Case becomes:
+
+```text
+WAITING_CLIENT
+```
+
+When customer answers:
+
+```text
+case resumes
+```
+
+---
+
+# 22. Client Action Is a First-Class Object
+
+Fields:
+
+```text
+id
+tenant_id
+case_id
+action_type
+question
+status
+due_date
+assigned_client_user
+response
+created_at
+resolved_at
+```
+
+States:
+
+```text
+OPEN
+ANSWERED
+RESOLVED
+CANCELLED
+```
+
+---
+
+# 23. Step 4 — BANK RECONCILIATION
+
+Bank reconciliation means:
+
+> Make sure movements in the bank account are explained by accounting records.
+
+Bank data:
+
+```text
+10 Sep +55,000,000 ABC Client
+12 Sep -18,000,000 XYZ
+15 Sep -5,200,000 AWS
+```
+
+Accounting data:
+
+```text
+Invoice receivable ABC 55m
+Supplier invoice AWS 5.2m
+Unknown XYZ
+```
+
+Expected result:
+
+```text
+ABC → MATCHED
+AWS → MATCHED
+XYZ → UNMATCHED
+```
+
+---
+
+# 24. Bank Matching Flow
+
+```text
+Bank transaction
       ↓
-More transactions
+Find candidates
       ↓
-More corrections
+Compare:
+- amount
+- party
+- invoice number
+- date
+- description
       ↓
-Better rules
+Generate match score
       ↓
-More automation
-      ↓
-Lower human cost
-      ↓
-Better service/margin
-      ↓
-More customers
+High confidence?
+ ┌────┴────┐
+Yes        No
+↓           ↓
+Suggest   Review Queue
 ```
 
-AI làm flywheel chạy nhanh hơn.
+The system should not hide unmatched transactions.
 
-AI không phải flywheel.
-
----
-
-# 38. Positioning
-
-Không nên nói:
-
-> “AI Accounting Company.”
-
-Không nên nói:
-
-> “Dịch vụ kế toán giá rẻ.”
-
-Positioning tốt hơn nếu chọn vertical:
-
-> **Finance & Accounting Operations dành riêng cho doanh nghiệp Immigration/Professional Services.**
-
-Hoặc cho Virtual Controller:
-
-> **Kế toán trưởng kiểm soát thuê ngoài cho SME đã có đội kế toán.**
+Unmatched = exception.
 
 ---
 
-# 39. One-Sentence Company Thesis
+# 25. Accounts Receivable Flow
 
-> **Chúng ta dùng chuyên môn kế toán để hiểu và kiểm soát nghiệp vụ, dùng công nghệ để biến quy trình đó thành hệ thống có thể lặp lại ở quy mô lớn, từ đó cung cấp một phòng accounting/finance thuê ngoài tốt hơn mô hình phụ thuộc hoàn toàn vào nhân sự.**
+AR means:
 
----
+> Money customers owe the company.
 
-# 40. Có nên bắt đầu startup này không?
-
-Câu trả lời hợp lý ở thời điểm này là:
-
-> **Đáng để chạy một pilot có kiểm soát; chưa có đủ bằng chứng để đầu tư lớn.**
-
-Lý do đáng test:
-
-- thị trường thật;
-- recurring revenue;
-- pain tồn tại;
-- mô hình đã được chứng minh quốc tế;
-- founding team có skill bổ sung nhau;
-- có cơ hội tạo leverage bằng automation.
-
-Lý do chưa nên đầu tư lớn:
-
-- đối thủ rất mạnh;
-- basic accounting bị price war;
-- MISA đang tiến nhanh về automation;
-- differentiation chưa được chứng minh bằng khách thật.
-
----
-
-# 41. Quyết định tốt nhất hiện tại
-
-Không viết thêm 200 trang business plan.
-
-Không build platform 6 tháng.
-
-Làm:
+Example:
 
 ```text
-1. Chọn 2 hypothesis.
-2. Thiết kế 2 offer.
-3. Tìm 5 khách mỗi offer.
-4. Charge tiền thật.
-5. Vận hành thật 3 tháng.
-6. Đo unit economics.
-7. Chọn winner.
+Invoice to Customer A: 100m
+Payment received: 60m
+Outstanding: 40m
 ```
 
-Hai hypothesis nên test:
+The system tracks:
 
 ```text
-A. Finance & Accounting Operations
-   cho Immigration / cross-border services
-
-B. Virtual Accounting Controller
-   cho SME đã có kế toán
+invoice
+customer
+due date
+original amount
+paid amount
+outstanding amount
+days overdue
 ```
 
----
-
-# 42. Final Strategic View
-
-Thị trường không thiếu dịch vụ kế toán.
-
-Thị trường cũng không thiếu phần mềm kế toán.
-
-Điều chúng ta cần chứng minh là có tồn tại một nhóm khách hàng mà:
+States:
 
 ```text
-accounting firm hiện tại
-→ quá generic
-
-software
-→ đòi khách tự vận hành
-
-CFO/controller
-→ quá đắt
-
-và chúng ta
-→ nằm đúng khoảng giữa
+OPEN
+PARTIALLY_PAID
+PAID
+OVERDUE
+WRITTEN_OFF
 ```
 
-Nếu tìm được nhóm đó và phục vụ tốt hơn rõ ràng, startup có wedge.
+---
 
-Nếu không tìm được, không nên cố dùng AI để tạo ra một nhu cầu không tồn tại.
+# 26. Accounts Payable Flow
+
+AP means:
+
+> Money company owes suppliers.
+
+Same concept:
+
+```text
+Supplier invoice
+↓
+amount due
+↓
+payment
+↓
+remaining payable
+```
 
 ---
 
-# PHỤ LỤC A — Competitive Snapshot
+# 27. Payroll Input Flow
 
-| Provider | Market | Core Offer | Strategic Lesson |
-|---|---|---|---|
-| MISA ASP | Việt Nam | platform + ecosystem kế toán dịch vụ | không cạnh tranh breadth/platform |
-| Savitax | Việt Nam | low-cost full accounting/tax | không cạnh tranh giá |
-| MISA ASP Partners | Việt Nam | outsourced accounting marketplace | basic service rất đông |
-| Bench | US SMB | software + human bookkeeping | productization có thể scale |
-| Pilot | startups/SMB | bookkeeping + tax + CFO | service ladder |
-| Kruze | VC-backed startup | deep vertical accounting | specialization tạo pricing power |
-| Bookkeeper360 | SMB | bookkeeping + CFO + back office | land-and-expand |
+MVP should not calculate payroll from scratch.
 
----
+It receives approved payroll information.
 
-# PHỤ LỤC B — Nguồn tham khảo chính
+```text
+Payroll source
+↓
+validate totals
+↓
+create accounting case
+↓
+prepare payroll accounting draft
+↓
+review
+```
 
-## Việt Nam
-
-- MISA ASP — nền tảng và số liệu hệ sinh thái  
-  https://asp.misa.vn/
-
-- MISA ASP — marketplace đối tác  
-  https://asp.misa.vn/tim-ke-toan
-
-- MISA ASP — app quản lý dành cho kế toán dịch vụ và cập nhật app chủ doanh nghiệp, 17/09/2026  
-  https://asp.misa.vn/tt/kien-thuc/app-misa-asp-quan-ly-danh-cho-ke-toan-dich-vu/
-
-- MISA ASP — quản lý khách hàng và hiệu suất kế toán dịch vụ  
-  https://asp.misa.vn/tt/kien-thuc/tinh-nang-quan-ly-khach-hang/
-
-- SAVITAX — dịch vụ kế toán thuế  
-  https://savitax.vn/dich-vu-ke-toan-thue-doanh-nghiep/
-
-- Bộ Tài chính — danh sách doanh nghiệp đủ điều kiện kinh doanh dịch vụ kế toán, cập nhật 08/06/2026  
-  https://mof.gov.vn/bo-tai-chinh/ke-toan-kiem-toan/danh-sach-doanh-nghiep-dich-vu-ke-toan-da-duoc-cap-giay-chung-nhan-du-dieu-kien-kinh-doanh-dich-vu-ke-toan-cap-nhat-den-ngay-8062026
-
-- Bộ Tài chính — danh sách cảnh báo điều kiện kinh doanh dịch vụ kế toán  
-  https://mof.gov.vn/bo-tai-chinh/thong-tin-ve-dich-vu-ke-toan-kiem-toan/danh-sach-doanh-nghiep-ke-toan-bi-canh-bao-ve-dieu-kien-kinh-doanh-dich-vu-ke-toan-cap-nhat-den-ngay-10052026
-
-## Quốc tế
-
-- Bench Pricing  
-  https://www.bench.co/pricing
-
-- Pilot  
-  https://pilot.com/
-
-- Kruze Consulting — Startup Accounting  
-  https://kruzeconsulting.com/startup-accounting/
-
-- Bookkeeper360 Pricing  
-  https://bookkeeper360.com/pricing/
+Payroll-sensitive fields may need stronger access controls.
 
 ---
 
-# PHỤ LỤC C — Bản mô tả dịch vụ dùng để giới thiệu
+# 28. Expense Flow
 
-> **Chúng tôi vận hành phần accounting & finance back-office cho doanh nghiệp nhỏ. Thay vì doanh nghiệp phải tự tuyển và quản lý cả phòng kế toán, đội ngũ của chúng tôi chịu trách nhiệm xử lý kế toán, đối chiếu, công nợ, closing và kiểm soát tài chính. Công nghệ và AI được sử dụng ở phía sau để giảm công việc thủ công và phát hiện vấn đề sớm; các nghiệp vụ cần judgment vẫn được kế toán chuyên môn review.**
+Typical service company expense:
+
+```text
+Invoice/receipt
+↓
+Who is vendor?
+↓
+What is expense?
+↓
+Is it business-related?
+↓
+Supporting evidence complete?
+↓
+Accounting treatment
+↓
+Review
+```
+
+Missing evidence creates action rather than silently posting.
+
+---
+
+# 29. Revenue Flow
+
+Typical service company:
+
+```text
+contract / order
+↓
+service delivered
+↓
+sales invoice
+↓
+receivable
+↓
+customer payment
+```
+
+MVP should track basic completeness.
+
+Complex revenue recognition can be deferred or routed to senior review.
+
+---
+
+# 30. Month-End Closing
+
+Closing is the central monthly process.
+
+Closing means:
+
+> Confirm that the month's accounting data is sufficiently complete and reviewed before reports/tax are finalized.
+
+---
+
+# 31. Month-End Closing Workflow
+
+```text
+START MONTH CLOSE
+      ↓
+1. Documents complete?
+      ↓
+2. Bank reconciled?
+      ↓
+3. AR reviewed?
+      ↓
+4. AP reviewed?
+      ↓
+5. Payroll recorded?
+      ↓
+6. Revenue complete?
+      ↓
+7. Expenses complete?
+      ↓
+8. Tax checklist complete?
+      ↓
+9. Exceptions resolved?
+      ↓
+10. Senior review
+      ↓
+CLOSE MONTH
+```
+
+Each step is a checklist item with evidence.
+
+---
+
+# 32. Closing State Machine
+
+```text
+NOT_STARTED
+↓
+IN_PROGRESS
+↓
+WAITING_CLIENT
+↓
+READY_FOR_REVIEW
+↓
+UNDER_REVIEW
+↓
+APPROVED
+↓
+CLOSED
+```
+
+A month cannot close while required blocking items remain unresolved.
+
+---
+
+# 33. Closing Checklist Example
+
+For September:
+
+```text
+[✓] Sales invoices collected
+[✓] Purchase invoices collected
+[✓] Bank account 001 reconciled
+[!] Bank account 002 has 2 unmatched transactions
+[✓] AR reviewed
+[✓] AP reviewed
+[ ] Payroll confirmation missing
+[ ] VAT review
+[ ] Senior review
+```
+
+This is more useful internally than a generic dashboard.
+
+---
+
+# 34. Internal Accountant Daily Screen
+
+An accountant should log in and see:
+
+```text
+TODAY
+
+Critical            2
+Due today           8
+Waiting client      12
+Need review         6
+
+ABC Co.
+- 2 unmatched bank transactions
+- September closing 78%
+- waiting for 1 contract
+
+XYZ Co.
+- 3 invoices need review
+- VAT checklist due tomorrow
+```
+
+This is the operating surface of the company.
+
+---
+
+# 35. Accounting Manager Screen
+
+Manager sees:
+
+```text
+CLIENTS
+50 active
+
+WORK
+17 waiting client
+11 review required
+4 closing at risk
+
+DEADLINES
+6 tax deadlines this week
+
+CAPACITY
+Accountant A: 12 clients
+Accountant B: 18 clients
+Accountant C: 10 clients
+```
+
+This replaces Excel-based service operations.
+
+---
+
+# 36. Client Portal
+
+Client portal must stay simple.
+
+Initial screens:
+
+```text
+1. Home
+2. Documents
+3. My Actions
+4. Reports
+```
+
+---
+
+# 37. Client Home
+
+Example:
+
+```text
+September Accounting
+
+Progress: 82%
+
+Need your action: 2
+Missing documents: 3
+Tax estimate: 18.5m
+Closing target: 10 Oct
+
+Important:
+- 1 customer invoice overdue
+- 2 bank transactions need confirmation
+```
+
+Client should not see internal accounting jargon unless necessary.
+
+---
+
+# 38. Internal Workflow vs Client Workflow
+
+Internal:
+
+```text
+invoice extraction
+journal mapping
+VAT validation
+bank match
+review
+closing
+```
+
+Client sees:
+
+```text
+Received
+Processing
+Need your action
+Completed
+```
+
+Rule:
+
+> Internal complexity must never leak unnecessarily into customer experience.
+
+---
+
+# 39. Core Domain Model
+
+The minimum model:
+
+```text
+Tenant
+User
+TenantMembership
+
+ClientCompany
+
+Document
+DocumentVersion
+NormalizedDocument
+
+AccountingCase
+CaseEvent
+
+Party
+
+Account
+JournalDraft
+JournalDraftLine
+
+BankAccount
+BankTransaction
+Reconciliation
+
+Receivable
+Payable
+
+ClientAction
+
+Review
+
+ClosingPeriod
+ClosingTask
+
+Rule
+RuleVersion
+
+AISuggestion
+
+AuditEvent
+```
+
+---
+
+# 40. AccountingCase Entity
+
+Recommended fields:
+
+```text
+id
+tenant_id
+case_type
+source_type
+source_id
+status
+risk_level
+assigned_to
+period
+priority
+created_at
+updated_at
+```
+
+Case types:
+
+```text
+PURCHASE
+SALE
+BANK_TRANSACTION
+PAYROLL
+REFUND
+MANUAL_ADJUSTMENT
+OTHER
+```
+
+---
+
+# 41. Case Events
+
+Never infer history only from current status.
+
+Store events:
+
+```text
+CASE_CREATED
+SOURCE_PARSED
+CLASSIFICATION_SUGGESTED
+CLIENT_INFO_REQUESTED
+CLIENT_RESPONDED
+REVIEW_REQUESTED
+APPROVED
+RECORDED
+RECONCILED
+CLOSED
+```
+
+This creates traceability.
+
+---
+
+# 42. State Transition Rules
+
+Example:
+
+```text
+NEW
+→ DATA_READY
+```
+
+only when required source is available.
+
+```text
+DATA_READY
+→ UNDERSTOOD
+```
+
+only after extraction and validation.
+
+```text
+UNDERSTOOD
+→ ACCOUNTING_PREPARED
+```
+
+only after journal draft exists.
+
+```text
+ACCOUNTING_PREPARED
+→ APPROVED
+```
+
+requires appropriate review.
+
+Invalid transitions must be rejected by backend.
+
+---
+
+# 43. Rule Engine
+
+The rule engine handles deterministic knowledge.
+
+Example:
+
+```yaml
+rule:
+  id: KNOWN_VENDOR_AWS
+  when:
+    vendor_tax_code: "..."
+  then:
+    category: CLOUD_SERVICE
+    suggested_account: "642"
+    default_risk: LOW
+```
+
+Rules must be versioned.
+
+---
+
+# 44. AI Layer
+
+AI is used only when deterministic logic is insufficient.
+
+Good use cases:
+
+```text
+read scanned document
+classify ambiguous expense
+suggest party matching
+explain anomalies
+generate client-friendly summaries
+```
+
+Bad use cases:
+
+```text
+calculate debit/credit totals
+enforce tenant permissions
+decide if period is closed
+validate unique invoice number
+```
+
+---
+
+# 45. AI Decision Contract
+
+AI result must have:
+
+```json
+{
+  "decision": "CLOUD_SERVICE",
+  "confidence": 0.94,
+  "evidence": [
+    {
+      "field": "description",
+      "value": "AWS infrastructure services"
+    }
+  ]
+}
+```
+
+No evidence means no automatic trust.
+
+---
+
+# 46. Review Object
+
+Fields:
+
+```text
+id
+case_id
+review_type
+required_role
+status
+decision
+reviewed_by
+comment
+created_at
+reviewed_at
+```
+
+Review types:
+
+```text
+ACCOUNTING_REVIEW
+TAX_REVIEW
+SENIOR_REVIEW
+CLIENT_CONFIRMATION
+```
+
+---
+
+# 47. Who Can Approve What
+
+Example policy:
+
+```text
+LOW
+→ ACCOUNTANT
+
+MEDIUM
+→ ACCOUNTANT
+
+HIGH
+→ SENIOR_ACCOUNTANT
+
+PERIOD_CLOSE
+→ SENIOR_ACCOUNTANT
+```
+
+Make this configurable later.
+
+---
+
+# 48. Service Operations
+
+The company itself must manage:
+
+```text
+customer assignment
+accountant capacity
+task deadlines
+client responsiveness
+closing progress
+quality
+SLA
+```
+
+This is separate from accounting data.
+
+---
+
+# 49. Work Queue
+
+Every employee should work from a queue.
+
+Example ordering:
+
+```text
+1. overdue critical
+2. due today
+3. high-risk review
+4. month-close blockers
+5. normal tasks
+```
+
+Do not rely on people remembering work from Zalo messages.
+
+---
+
+# 50. Task Generation
+
+Tasks should be generated from business events.
+
+Example:
+
+```text
+Document invalid
+→ Review Task
+
+Unknown bank transaction
+→ Reconciliation Task
+
+Missing contract
+→ Client Action
+
+Closing blocked
+→ Closing Task
+```
+
+Avoid manual task creation where system state already knows the work is required.
+
+---
+
+# 51. Deadline Model
+
+Deadlines can come from:
+
+```text
+tax calendar
+closing policy
+client SLA
+task-specific due date
+```
+
+System needs:
+
+```text
+due_at
+priority
+escalation_at
+owner
+```
+
+---
+
+# 52. Escalation
+
+Example:
+
+```text
+task due in 2 days
+→ accountant notification
+
+task overdue
+→ accountant + manager
+
+client action overdue
+→ client reminder
+
+closing at risk
+→ manager alert
+```
+
+---
+
+# 53. Architecture
+
+Use Modular Monolith first.
+
+```mermaid
+flowchart TB
+    Portal[Client Portal]
+    Ops[Internal Operations UI]
+
+    Portal --> API
+    Ops --> API
+
+    API --> Cases[Accounting Cases]
+    API --> Documents[Documents]
+    API --> Accounting[Accounting]
+    API --> Banking[Banking]
+    API --> Closing[Closing]
+    API --> Workflow[Workflow]
+    API --> Rules[Rules]
+    API --> AI[AI Orchestrator]
+    API --> Reporting[Reporting]
+    API --> Audit[Audit]
+
+    Documents --> Storage[(Object Storage)]
+
+    Cases --> DB[(PostgreSQL)]
+    Accounting --> DB
+    Banking --> DB
+    Closing --> DB
+    Workflow --> DB
+    Rules --> DB
+    AI --> DB
+    Reporting --> DB
+    Audit --> DB
+
+    AI --> LLM[AI Provider]
+    Accounting --> Adapter[Accounting System Adapter]
+    Adapter --> Existing[MISA / FAST / Other]
+```
+
+---
+
+# 54. Suggested Backend Modules
+
+```text
+identity
+tenants
+clients
+documents
+cases
+parties
+accounting
+banking
+receivables
+payables
+reviews
+client-actions
+closing
+workflow
+rules
+ai
+reporting
+integrations
+audit
+```
+
+---
+
+# 55. Database First-Pass Tables
+
+```text
+tenants
+users
+tenant_memberships
+
+documents
+document_versions
+normalized_documents
+
+accounting_cases
+case_events
+
+parties
+
+accounts
+journal_drafts
+journal_draft_lines
+
+bank_accounts
+bank_transactions
+reconciliations
+
+receivables
+payables
+
+client_actions
+reviews
+
+closing_periods
+closing_tasks
+
+rules
+rule_versions
+
+ai_suggestions
+
+audit_events
+```
+
+---
+
+# 56. System of Record Strategy
+
+Initially:
+
+```text
+MISA / FAST / existing accounting software
+=
+official accounting system
+```
+
+Our system:
+
+```text
+workflow
+control
+automation
+review
+visibility
+```
+
+This avoids building a full accounting ledger too early.
+
+---
+
+# 57. Integration Contract
+
+Accounting adapter:
+
+```java
+interface AccountingSystemAdapter {
+
+    List<Account> fetchAccounts();
+
+    List<Party> fetchParties();
+
+    List<JournalEntry> fetchJournalEntries(
+        AccountingPeriod period
+    );
+
+    SyncResult syncApprovedDraft(
+        JournalDraft draft
+    );
+}
+```
+
+MVP can make sync one-way or manual export.
+
+---
+
+# 58. API Examples
+
+Create document:
+
+```http
+POST /v1/documents
+```
+
+Get work queue:
+
+```http
+GET /v1/work-items
+```
+
+Get accounting case:
+
+```http
+GET /v1/accounting-cases/{id}
+```
+
+Approve review:
+
+```http
+POST /v1/reviews/{id}/decision
+```
+
+Answer client action:
+
+```http
+POST /v1/client-actions/{id}/response
+```
+
+Start month close:
+
+```http
+POST /v1/closing-periods/{period}/start
+```
+
+---
+
+# 59. Async Processing
+
+Heavy processing should be asynchronous:
+
+```text
+document extraction
+AI calls
+bank matching
+report generation
+anomaly scan
+```
+
+Flow:
+
+```text
+API
+↓
+save request
+↓
+create job/outbox event
+↓
+return immediately
+↓
+worker processes
+↓
+update case
+```
+
+---
+
+# 60. Idempotency
+
+Must support repeated uploads/imports safely.
+
+For:
+
+```text
+documents
+bank imports
+integration sync
+external callbacks
+```
+
+Use:
+
+```text
+source ID
+hash
+idempotency key
+```
+
+---
+
+# 61. Multi-Tenant Safety
+
+Every business row includes:
+
+```text
+tenant_id
+```
+
+Tenant comes from authentication context.
+
+Do not trust tenant IDs provided by frontend.
+
+Automated tests must verify cross-tenant access is impossible.
+
+---
+
+# 62. Audit Trail
+
+Must record:
+
+```text
+who
+did what
+to which object
+when
+before
+after
+why
+```
+
+Important events:
+
+```text
+review approval
+journal changes
+period close
+permission change
+rule change
+client response
+AI suggestion
+```
+
+---
+
+# 63. Accounting Invariants
+
+The system must always enforce:
+
+```text
+Debit = Credit
+Closed period cannot be modified normally
+Posted accounting entries are never silently deleted
+Every approval has an actor
+Every AI suggestion has provenance
+Every source document remains traceable
+Tenant data never crosses tenant boundary
+```
+
+---
+
+# 64. Security
+
+Minimum:
+
+```text
+TLS
+RBAC
+MFA for internal staff
+encrypted object storage
+secret manager
+audit logging
+signed URLs
+backup
+rate limiting
+```
+
+Highly sensitive data needs stricter controls.
+
+---
+
+# 65. Metrics That Matter
+
+Technical metrics are not enough.
+
+Must measure:
+
+```text
+human_minutes_per_client
+human_minutes_per_document
+automation_rate
+exception_rate
+review_rate
+AI correction rate
+closing_duration
+client_response_time
+clients_per_accountant
+```
+
+If human minutes per client do not fall safely, automation is not working.
+
+---
+
+# 66. MVP Scope
+
+## MVP 1 — Operational Backbone
+
+Build:
+
+```text
+Tenant
+User
+Client
+Documents
+Accounting Cases
+Work Queue
+Client Actions
+Review
+Audit
+```
+
+No complex accounting automation yet.
+
+Purpose:
+
+> make service operations visible and controlled.
+
+---
+
+# 67. MVP 2 — Document Intelligence
+
+Add:
+
+```text
+XML parsing
+PDF/image extraction
+classification
+duplicate detection
+normalized documents
+```
+
+---
+
+# 68. MVP 3 — Accounting Assistance
+
+Add:
+
+```text
+chart of accounts
+parties
+rules
+journal draft
+validation
+human review
+```
+
+---
+
+# 69. MVP 4 — Banking
+
+Add:
+
+```text
+bank imports
+transaction normalization
+matching
+reconciliation queue
+```
+
+---
+
+# 70. MVP 5 — Closing
+
+Add:
+
+```text
+month closing
+checklist
+blocking rules
+senior approval
+client progress
+```
+
+---
+
+# 71. MVP 6 — Client Portal
+
+Only now expose:
+
+```text
+status
+documents
+actions
+reports
+```
+
+The internal operating system should be mature first.
+
+---
+
+# 72. One Full Example
+
+Customer uploads an AWS invoice.
+
+```text
+1. Document received.
+2. Store original.
+3. Hash file.
+4. Duplicate check.
+5. Detect PURCHASE_INVOICE.
+6. Parse/extract data.
+7. Validate totals.
+8. Create Accounting Case.
+9. Find AWS party.
+10. Find historical/rule mapping.
+11. Suggest cloud expense treatment.
+12. Create Journal Draft.
+13. Validate Debit = Credit.
+14. Risk = LOW.
+15. Accountant sees it in review queue.
+16. Accountant approves.
+17. Draft synced/exported to accounting system.
+18. Bank transaction arrives later.
+19. Matching engine suggests corresponding payment.
+20. Accountant confirms match.
+21. Case becomes RECONCILED.
+22. Month-close checklist sees item complete.
+23. Audit history contains every important step.
+```
+
+If no contract/supporting document is required:
+
+```text
+client sees nothing.
+```
+
+If something is missing:
+
+```text
+Client Action:
+"Please provide supporting contract."
+```
+
+---
+
+# 73. Another Full Example — Unknown Bank Transaction
+
+```text
+1. Bank CSV imported.
+2. Transaction 18m has no match.
+3. Matching engine finds no confident candidate.
+4. Create Accounting Case.
+5. Case status = NEED_ACCOUNTANT.
+6. Accountant reviews.
+7. Accountant also cannot identify.
+8. Create Client Action.
+9. Case status = WAITING_CLIENT.
+10. Client says: "Payment for freelancer Nguyen A."
+11. Case resumes.
+12. System/accountant classifies expense.
+13. Journal Draft created.
+14. Review.
+15. Recorded.
+16. Reconciled.
+17. Closed.
+```
+
+This flow must be implementable without any developer needing to understand every accounting concept in advance.
+
+---
+
+# 74. Developer Mental Model
+
+When coding any feature, ask:
+
+```text
+What business object is moving?
+What state is it currently in?
+What event happened?
+What decision is required?
+Who owns that decision?
+Can rule/code decide it?
+Does AI only suggest?
+Does a human need to approve?
+What state comes next?
+What audit evidence must remain?
+```
+
+If these questions are unclear:
+
+> do not code yet.
+
+---
+
+# 75. Product Principle
+
+The product is not:
+
+```text
+"AI accounting software"
+```
+
+It is:
+
+```text
+"A controlled workflow for running an accounting service company."
+```
+
+AI is one worker inside that workflow.
+
+---
+
+# 76. Final System Model
+
+```text
+SOURCE DATA
+    ↓
+DOCUMENT / TRANSACTION
+    ↓
+ACCOUNTING CASE
+    ↓
+UNDERSTAND
+    ↓
+RULE / AI SUGGESTION
+    ↓
+ACCOUNTING DRAFT
+    ↓
+RISK ROUTING
+    ↓
+HUMAN REVIEW
+    ↓
+RECORD
+    ↓
+RECONCILE
+    ↓
+MONTH CLOSE
+    ↓
+REPORT
+```
+
+Around the entire flow:
+
+```text
+Tasks
+Deadlines
+Client Actions
+Audit
+Permissions
+Metrics
+```
+
+That is the core of the platform.
+
+---
+
+# 77. Final Design Decision
+
+For the first year:
+
+> **Build the operating system for the accounting service team first.**
+
+Do not start by building a large customer portal.
+
+Do not start by rebuilding MISA.
+
+Do not start with a generic AI chatbot.
+
+Build the real workflow:
+
+```text
+Collect
+→ Understand
+→ Prepare
+→ Review
+→ Reconcile
+→ Close
+```
+
+Then automate each step gradually.
+
+That gives engineering a clear model, accounting a controllable process, and the business a path to scale.
