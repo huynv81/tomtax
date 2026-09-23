@@ -1,2538 +1,2012 @@
-# AI-Enabled Accounting Services Platform
-## Product, Operating Model & Automation Blueprint
+# TÀI LIỆU THIẾT KẾ NGHIỆP VỤ & KỸ THUẬT
+# Hệ thống vận hành dịch vụ kế toán cho doanh nghiệp nhỏ
+## Thiết kế theo luồng nghiệp vụ trước, kỹ thuật sau
 
-**Phiên bản:** 1.0  
-**Mục tiêu:** Xây dựng mô hình dịch vụ kế toán truyền thống nhưng được vận hành bằng automation + AI + human review, nhằm tăng năng suất, giảm sai sót, tăng tính minh bạch và nâng trải nghiệm khách hàng.
+**Phiên bản:** 3.0  
+**Trạng thái:** Đề xuất thiết kế  
+**Đối tượng đọc:** Founder, Product, Dev, Kế toán trưởng, Kế toán viên  
+**Khách hàng mục tiêu ban đầu:** Doanh nghiệp dịch vụ nhỏ và rất nhỏ  
+**Nguyên tắc:** Hiểu nghiệp vụ trước, code sau.
 
 ---
 
-# 1. Executive Summary
+# 1. Mục đích của tài liệu
 
-Mô hình này **không phát minh ra một loại dịch vụ kế toán mới**.
-
-Các dịch vụ vẫn là những dịch vụ thị trường đã quen thuộc:
-
-- Kế toán thuế trọn gói
-- Kế toán bán hàng
-- Kế toán công nợ
-- Payroll
-- BHXH
-- Kế toán mua hàng
-- Kế toán kho
-- Báo cáo quản trị
-- Quyết toán thuế
-- Thành lập/thay đổi/giải thể doanh nghiệp
-
-Điểm khác biệt nằm ở **cách vận hành**.
-
-Thay vì để kế toán viên thực hiện hầu hết thao tác bằng tay:
+Hệ thống này không được thiết kế theo kiểu:
 
 ```text
-Khách gửi chứng từ
-        ↓
-Kế toán đọc
-        ↓
-Kế toán nhập liệu
-        ↓
-Kế toán kiểm tra
-        ↓
-Kế toán hạch toán
-        ↓
-Kế toán đối chiếu
-        ↓
-Kế toán lập báo cáo
+Nghĩ ra module
+→ tạo database
+→ viết API
+→ sau đó mới hỏi kế toán dùng thế nào
 ```
 
-Mô hình mới chuyển thành:
+Thứ tự đúng phải là:
 
 ```text
-Khách gửi dữ liệu
+Ngoài đời kế toán đang làm gì?
         ↓
-Automation thu thập
+Ai làm việc đó?
         ↓
-AI đọc + phân loại
+Dữ liệu đầu vào là gì?
         ↓
-Rule Engine kiểm tra
+Cần quyết định điều gì?
         ↓
-Auto Reconciliation
+Việc nào máy làm được?
         ↓
-AI đề xuất xử lý
+Việc nào phải cần kế toán?
         ↓
-Exception Queue
+Nghiệp vụ chuyển sang trạng thái nào?
         ↓
-Kế toán review
-        ↓
-Senior review
-        ↓
-Báo cáo / kê khai / phản hồi khách hàng
+Sau đó mới thiết kế phần mềm
 ```
 
-Triết lý cốt lõi:
+Sản phẩm ban đầu không phải ERP và cũng không phải phần mềm kế toán thay thế MISA/FAST.
 
-> **Máy xử lý giao dịch bình thường. Con người xử lý ngoại lệ, judgement và trách nhiệm nghề nghiệp.**
+Sản phẩm là:
 
-Mục tiêu dài hạn:
+> **Hệ điều hành vận hành dịch vụ kế toán — Accounting Service Operating System.**
 
-> **80–90% nghiệp vụ chuẩn được xử lý tự động hoặc bán tự động; con người tập trung vào 10–20% exception.**
-
----
-
-# 2. Product Vision
-
-## 2.1. Khách hàng đang mua gì?
-
-Khách hàng không mua:
-
-- AI
-- OCR
-- workflow engine
-- rule engine
-- dashboard
-- machine learning
-
-Khách hàng mua:
-
-- sổ sách đúng
-- khai thuế đúng hạn
-- giảm rủi ro
-- biết còn thiếu chứng từ gì
-- biết phải nộp bao nhiêu thuế
-- biết khách nào chưa trả tiền
-- biết tiền sắp phải chi
-- được kế toán hỗ trợ khi có vấn đề
-
-Do đó, tên sản phẩm ở phía khách hàng vẫn nên là:
-
-> **Dịch vụ kế toán trọn gói**
-
-hoặc:
-
-> **Phòng kế toán thuê ngoài cho doanh nghiệp nhỏ**
-
-Công nghệ là **engine ở phía sau**.
+Nó giúp một công ty dịch vụ kế toán quản lý hàng chục/hàng trăm khách hàng một cách có quy trình, có trạng thái, có kiểm soát và có khả năng tự động hóa sâu.
 
 ---
 
-# 3. Strategic Positioning
+# 2. Khách hàng mục tiêu ban đầu
 
-## 3.1. Không cạnh tranh bằng việc phát minh nghiệp vụ mới
+Tập trung trước vào:
 
-Không cần tạo ra những dịch vụ mà thị trường chưa hiểu.
+- công ty dịch vụ;
+- 1–20 nhân sự;
+- khoảng 10–200 chứng từ/tháng;
+- 1–3 tài khoản ngân hàng;
+- không sản xuất;
+- không tồn kho phức tạp;
+- không nhiều pháp nhân;
+- thường đang dùng MISA, FAST, Excel hoặc kế toán thuê ngoài.
 
-Có thể cung cấp cùng loại dịch vụ với các công ty kế toán hiện tại, nhưng khác biệt ở:
+Nguyên tắc:
 
-- tốc độ
-- automation
-- kiểm soát
-- chất lượng
-- minh bạch
-- chủ động
-- trải nghiệm khách hàng
-- khả năng scale
-
----
-
-## 3.2. Positioning đề xuất
-
-> **Dịch vụ kế toán trọn gói cho doanh nghiệp nhỏ, vận hành bằng công nghệ để xử lý nhanh hơn, kiểm tra liên tục, phát hiện thiếu sót sớm và giảm phụ thuộc vào thao tác thủ công.**
-
-Không nên dùng positioning:
-
-> AI Accounting Company
-
-vì khách hàng SME thường không mua công nghệ.
-
-Nên nói bằng outcome:
-
-> **Thiếu chứng từ báo ngay. Thuế biết trước. Công nợ theo dõi liên tục. Báo cáo rõ ràng.**
+> **Khách hàng ban đầu hẹp, nhưng nghiệp vụ lõi phải đủ tổng quát.**
 
 ---
 
-# 4. Target Customer
+# 3. Hiểu kế toán theo mô hình đơn giản nhất
 
-## 4.1. Giai đoạn đầu
-
-Nên tập trung vào doanh nghiệp dịch vụ nhỏ và rất nhỏ.
-
-Đề xuất:
+Đối với một doanh nghiệp dịch vụ nhỏ, có thể nhìn toàn bộ vận hành kế toán thành 5 vòng:
 
 ```text
-Quy mô:
-1–30 nhân sự
+1. Thu thập
+   Nhận hóa đơn, chứng từ, giao dịch ngân hàng, hợp đồng...
 
-Đặc điểm:
-- ít kho
-- không sản xuất
-- không BOM
-- không costing phức tạp
-- không nhiều chi nhánh
-- chứng từ vừa phải
-- nghiệp vụ tương đối chuẩn hóa
+2. Hiểu nghiệp vụ
+   Xác định chứng từ/giao dịch đó là gì.
+
+3. Ghi nhận kế toán
+   Xác định cách hạch toán.
+
+4. Đối chiếu
+   Kiểm tra sổ kế toán có khớp với thực tế không.
+
+5. Chốt kỳ & báo cáo
+   Hoàn thành tháng, thuế và báo cáo.
 ```
 
-Ví dụ:
-
-- công ty phần mềm
-- agency
-- marketing
-- consulting
-- giáo dục
-- di trú
-- thiết kế
-- outsourcing
-- professional services
-- công ty thương mại nhỏ đơn giản
+Mọi chức năng trong hệ thống đều phải phục vụ một trong 5 bước này.
 
 ---
 
-## 4.2. Không nên làm ngay từ đầu
+# 4. Các vai trò trong hệ thống
 
-- sản xuất
-- xây dựng phức tạp
-- nhà hàng chuỗi lớn
-- logistics phức tạp
-- warehouse nhiều tầng
-- manufacturing costing
-- đa pháp nhân
-- consolidation
-- import/export lớn
-- project accounting rất phức tạp
+## 4.1. Chủ doanh nghiệp
 
-Lý do:
+Quan tâm:
 
-> Không phải vì không làm được, mà vì chúng làm tăng số lượng exception và làm giảm tỷ lệ automation.
+- tháng này kế toán làm tới đâu;
+- thiếu gì;
+- cần xác nhận việc gì;
+- thuế dự kiến bao nhiêu;
+- có vấn đề nghiêm trọng nào không;
+- báo cáo tài chính cơ bản.
+
+Họ không cần nhìn chi tiết kỹ thuật kế toán.
 
 ---
 
-# 5. Service Catalog
+## 4.2. Nhân viên phía khách hàng
 
-Mô hình vẫn giữ các dịch vụ thị trường đang bán.
+Có thể:
 
-## 5.1. Core Services
-
-### A. Kế toán thuế trọn gói
-
-Bao gồm:
-
-- tiếp nhận chứng từ
-- kiểm tra hóa đơn
-- ghi nhận doanh thu
-- ghi nhận chi phí
-- hạch toán
-- lập sổ
-- kê khai VAT
-- PIT
-- CIT
-- báo cáo thuế
-- báo cáo tài chính
-- quyết toán
-- theo dõi deadline
+- tải chứng từ;
+- bổ sung hợp đồng;
+- trả lời câu hỏi;
+- xác nhận giao dịch;
+- cung cấp bảng lương.
 
 ---
 
-### B. Payroll
+## 4.3. Kế toán viên
 
-Bao gồm:
+Làm công việc hàng ngày:
 
-- danh sách nhân sự
-- bảng công
-- lương
-- thưởng
-- phụ cấp
-- khấu trừ
-- PIT
-- payslip
-- báo cáo payroll
+- kiểm tra chứng từ;
+- phân loại giao dịch;
+- tạo bút toán nháp;
+- đối chiếu ngân hàng;
+- hỏi khách khi thiếu dữ liệu;
+- thực hiện checklist cuối tháng.
 
 ---
 
-### C. BHXH
+## 4.4. Kế toán trưởng / Senior Accountant
 
-Bao gồm:
+Xử lý:
 
-- tăng giảm lao động
-- hồ sơ BHXH
-- theo dõi đóng BHXH
-- đối chiếu BHXH
-- các nghiệp vụ liên quan
-
----
-
-### D. Kế toán bán hàng
-
-Bao gồm:
-
-- quotation
-- contract
-- order
-- delivery/service completion
-- invoice
-- payment request
-- revenue recognition
-- AR
+- nghiệp vụ khó;
+- giao dịch lớn;
+- vấn đề thuế;
+- bút toán bất thường;
+- hoàn tiền;
+- giao dịch nước ngoài;
+- review cuối kỳ;
+- chốt báo cáo.
 
 ---
 
-### E. Kế toán công nợ
+## 4.5. Hệ thống
 
-Bao gồm:
+Hệ thống có nhiệm vụ:
 
-- AR
-- AP
-- due date
-- aging
-- payment status
-- overdue
-- reconciliation
-- payment reminder
+- thu thập dữ liệu;
+- đọc chứng từ;
+- phát hiện trùng;
+- chuẩn hóa dữ liệu;
+- áp dụng rule;
+- gợi ý nghiệp vụ;
+- tạo task;
+- theo dõi deadline;
+- phát hiện exception.
 
----
-
-### F. Kế toán mua hàng
-
-Bao gồm:
-
-- purchase document
-- supplier
-- invoice
-- payment
-- AP
-- document completeness
+Hệ thống không được tự quyết các nghiệp vụ rủi ro cao.
 
 ---
 
-### G. Kế toán kho
+# 5. Một tháng kế toán ngoài đời diễn ra thế nào?
 
-Giai đoạn sau:
-
-- receipt
-- issue
-- balance
-- stock count
-- reconciliation
-
----
-
-### H. Báo cáo quản trị
-
-Bao gồm:
-
-- doanh thu
-- chi phí
-- lợi nhuận
-- cash position
-- AR
-- AP
-- cashflow
-- variance
-
----
-
-### I. Quyết toán
-
-Bao gồm:
-
-- document completeness
-- reconciliation
-- anomaly review
-- outstanding issues
-- tax risk checklist
-
----
-
-# 6. Core Operating Principle
-
-Mỗi bước nghiệp vụ phải được phân vào một trong bốn nhóm.
+Ví dụ khách hàng:
 
 ```text
-1. Automation
-2. Rule Engine
-3. AI
-4. Human
+Công ty ABC Digital
+15 nhân viên
+2 tài khoản ngân hàng
+80 chứng từ/tháng
+đang dùng MISA
 ```
+
+Trong tháng phát sinh:
+
+```text
+- xuất hóa đơn bán hàng;
+- nhận hóa đơn đầu vào;
+- khách hàng thanh toán;
+- công ty trả tiền nhà cung cấp;
+- nhân viên thanh toán chi phí;
+- trả lương;
+- ký hợp đồng;
+- phát sinh thu/chi ngân hàng.
+```
+
+Cuối tháng:
+
+```text
+- kiểm tra đã đủ chứng từ chưa;
+- đối chiếu ngân hàng;
+- kiểm tra công nợ phải thu;
+- kiểm tra công nợ phải trả;
+- kiểm tra lương;
+- kiểm tra doanh thu;
+- kiểm tra chi phí;
+- kiểm tra thuế;
+- xử lý ngoại lệ;
+- kế toán trưởng review;
+- chốt tháng.
+```
+
+Đây chính là workflow mà phần mềm phải mô hình hóa.
 
 ---
 
-# 7. Four-Layer Automation Model
+# 6. Đối tượng trung tâm: Accounting Case
 
-## 7.1. Layer 1 — Automation
+Thay vì coi hóa đơn là trung tâm, hệ thống nên dùng khái niệm:
 
-Automation phù hợp với việc:
+> **Accounting Case = một vụ việc kế toán cần được xử lý đến khi hoàn tất.**
 
-- nhận file
-- đổi tên file
-- phân folder
-- đồng bộ dữ liệu
-- import
-- export
-- scheduling
-- notification
-- reminder
-- task creation
-- status update
-
-Ví dụ:
+Ví dụ một Accounting Case có thể là:
 
 ```text
-Email có attachment
-        ↓
-Download tự động
-        ↓
-Xác định khách hàng
-        ↓
-Lưu đúng workspace
-        ↓
-Tạo Document Record
-        ↓
-Đẩy vào processing queue
+- một hóa đơn mua hàng;
+- một hóa đơn bán hàng;
+- một giao dịch ngân hàng;
+- một khoản hoàn tiền;
+- một bộ lương;
+- một khoản chi không rõ mục đích;
+- một bút toán điều chỉnh;
+- một chứng từ thiếu hợp đồng.
 ```
 
-Không cần AI.
+Mỗi case có trạng thái rõ ràng.
 
 ---
 
-## 7.2. Layer 2 — Rule Engine
-
-Rule phù hợp với logic deterministic.
-
-Ví dụ:
-
-```text
-Invoice number duplicate
-        ↓
-FLAG_DUPLICATE
-```
-
-Hoặc:
-
-```text
-Bank payment > threshold
-AND invoice missing
-        ↓
-MISSING_SUPPORTING_DOCUMENT
-```
-
-Hoặc:
-
-```text
-Invoice VAT = 10%
-but total != subtotal + VAT
-        ↓
-CALCULATION_ERROR
-```
-
-Rule Engine phải là một thành phần first-class.
-
-Không được dùng LLM thay cho tất cả business rule.
-
----
-
-## 7.3. Layer 3 — AI
-
-AI phù hợp với dữ liệu khó cấu trúc.
-
-Ví dụ:
-
-- OCR
-- document classification
-- field extraction
-- contract understanding
-- expense category suggestion
-- GL suggestion
-- anomaly explanation
-- report summary
-- question answering
-
-AI nên trả về:
-
-```json
-{
-  "suggestion": "...",
-  "confidence": 0.91,
-  "reason": "...",
-  "source": [...]
-}
-```
-
-AI không nên im lặng quyết định các nghiệp vụ có rủi ro cao.
-
----
-
-## 7.4. Layer 4 — Human
-
-Human bắt buộc ở:
-
-- judgement
-- nghiệp vụ chưa chắc chắn
-- tax interpretation
-- unusual transaction
-- policy exception
-- large amount
-- material adjustment
-- final filing
-- senior review
-
-Human role chuyển từ:
-
-```text
-DATA ENTRY
-```
-
-sang:
-
-```text
-REVIEW
-EXCEPTION HANDLING
-JUDGEMENT
-APPROVAL
-```
-
----
-
-# 8. End-to-End Architecture
-
-```text
-                         CUSTOMER
-                             │
-          ┌──────────────────┼──────────────────┐
-          │                  │                  │
-        Zalo               Email              Portal
-          │                  │                  │
-          └──────────────────┼──────────────────┘
-                             ↓
-                    DOCUMENT INTAKE
-                             │
-                             ↓
-                     PROCESSING QUEUE
-                             │
-          ┌──────────────────┼──────────────────┐
-          ↓                  ↓                  ↓
-        OCR             Classification      Extraction
-          │                  │                  │
-          └──────────────────┼──────────────────┘
-                             ↓
-                         RULE ENGINE
-                             │
-                             ↓
-                    MATCH / RECONCILE
-                             │
-                             ↓
-                         AI SUGGEST
-                             │
-                             ↓
-                       RISK SCORING
-                             │
-               ┌─────────────┴─────────────┐
-               ↓                           ↓
-          AUTO-PROCESS                 EXCEPTION
-                                           │
-                                           ↓
-                                     ACCOUNTANT
-                                           │
-                                           ↓
-                                    SENIOR REVIEW
-                                           │
-                                           ↓
-                           REPORT / TAX / CUSTOMER
-```
-
----
-
-# 9. Document Intake
-
-Khách hàng không nên bị ép học portal.
-
-Hệ thống cần nhận từ nhiều nguồn:
-
-```text
-Email
-Zalo
-Portal
-Upload link
-Google Drive
-API
-Bank data
-E-invoice integration
-```
-
-Tất cả converging về:
-
-```text
-Unified Document Inbox
-```
-
-Mỗi document cần:
-
-```text
-document_id
-customer_id
-source
-received_at
-document_type
-processing_status
-confidence
-accounting_period
-review_status
-```
-
----
-
-# 10. Document Processing Pipeline
+# 7. Vòng đời của Accounting Case
 
 ```text
 NEW
- ↓
-VIRUS_CHECK
- ↓
-OCR
- ↓
-CLASSIFY
- ↓
-EXTRACT
- ↓
-VALIDATE
- ↓
-DUPLICATE_CHECK
- ↓
-MATCH
- ↓
-ACCOUNTING_SUGGESTION
- ↓
-RISK_SCORE
- ↓
-AUTO / REVIEW
+↓
+DATA_READY
+↓
+UNDERSTOOD
+↓
+ACCOUNTING_PREPARED
+↓
+REVIEW_REQUIRED / READY
+↓
+APPROVED
+↓
+RECORDED
+↓
+RECONCILED
+↓
+CLOSED
+```
+
+Các trạng thái ngoại lệ:
+
+```text
+WAITING_CLIENT
+NEED_ACCOUNTANT
+NEED_SENIOR
+BLOCKED
+REJECTED
+```
+
+Ý nghĩa:
+
+- `NEW`: vừa phát sinh.
+- `DATA_READY`: đã có đủ dữ liệu nguồn cơ bản.
+- `UNDERSTOOD`: đã hiểu nghiệp vụ là gì.
+- `ACCOUNTING_PREPARED`: đã có phương án hạch toán nháp.
+- `REVIEW_REQUIRED`: cần người kiểm tra.
+- `APPROVED`: đã được duyệt.
+- `RECORDED`: đã ghi nhận vào hệ thống kế toán.
+- `RECONCILED`: đã đối chiếu.
+- `CLOSED`: hoàn tất.
+
+---
+
+# 8. Bước 1 — Thu thập dữ liệu
+
+Nguồn dữ liệu:
+
+```text
+- hóa đơn đầu vào;
+- hóa đơn đầu ra;
+- sao kê ngân hàng;
+- hợp đồng;
+- bảng lương;
+- phiếu chi;
+- chứng từ thanh toán;
+- biên bản nghiệm thu;
+- tài liệu khác.
+```
+
+Nguồn có thể đến từ:
+
+```text
+Upload
+Email
+MISA
+FAST
+Excel
+CSV
+XML hóa đơn điện tử
+API
 ```
 
 ---
 
-# 11. Invoice Automation
-
-Ví dụ hóa đơn đầu vào.
-
-## 11.1. Extract
-
-Hệ thống đọc:
+# 9. Luồng thu thập
 
 ```text
-Seller
-Tax code
-Invoice no.
-Invoice date
-Description
-Subtotal
-VAT rate
-VAT amount
-Total
-Currency
-Payment information
+Dữ liệu đi vào
+    ↓
+Tạo bản ghi tiếp nhận
+    ↓
+Lưu file gốc
+    ↓
+Tính fingerprint/hash
+    ↓
+Đã tồn tại?
+ ┌────┴────┐
+Có        Không
+↓           ↓
+Đánh dấu   Tiếp tục
+trùng
+            ↓
+Xác định loại tài liệu
+            ↓
+Tạo Accounting Case
+```
+
+Quy tắc:
+
+> File gốc luôn phải được giữ lại để audit.
+
+---
+
+# 10. Xử lý chứng từ trùng
+
+Ví dụ khách tải cùng một hóa đơn 3 lần.
+
+Hệ thống kiểm tra:
+
+```text
+số hóa đơn
++
+mã số thuế người bán
++
+ngày
++
+số tiền
+```
+
+Nếu giống:
+
+```text
+DUPLICATE_CANDIDATE
+```
+
+Hệ thống không được tự tạo 3 bút toán.
+
+Kế toán có thể xác nhận nếu đây thật sự là 2 nghiệp vụ khác nhau.
+
+---
+
+# 11. Bước 2 — Hiểu chứng từ
+
+Ví dụ hệ thống nhận:
+
+```text
+Nhà cung cấp: AWS
+Số tiền: 22.000.000
+Nội dung: Cloud Services
+Thuế: ...
+Ngày: ...
+```
+
+Hệ thống phải xác định được:
+
+```text
+- đây là loại chứng từ gì;
+- bên giao dịch là ai;
+- số tiền;
+- tiền tệ;
+- số hóa đơn;
+- ngày;
+- thuế;
+- nội dung;
+- có liên quan hợp đồng/dự án nào không.
 ```
 
 ---
 
-## 11.2. Validate
+# 12. Ưu tiên dữ liệu có cấu trúc
 
-Rule Engine kiểm:
+Không dùng AI nếu dữ liệu đã có cấu trúc.
+
+Thứ tự:
 
 ```text
-Missing field?
-Duplicate?
-Tax code format?
-Amount correct?
-VAT calculation correct?
-Period correct?
-Supplier known?
-Contract available?
-Bank payment available?
+XML
+→ API
+→ CSV/XLSX
+→ PDF có text
+→ PDF scan
+→ ảnh
+```
+
+Lý do:
+
+- chính xác hơn;
+- rẻ hơn;
+- dễ audit;
+- ít hallucination hơn.
+
+---
+
+# 13. Chuẩn hóa chứng từ
+
+Mọi nguồn phải chuyển về một format chung.
+
+Ví dụ:
+
+```json
+{
+  "type": "PURCHASE_INVOICE",
+  "invoiceNumber": "000123",
+  "documentDate": "2026-09-05",
+  "seller": {
+    "name": "ABC Cloud",
+    "taxCode": "031..."
+  },
+  "currency": "VND",
+  "subtotal": 20000000,
+  "tax": 2000000,
+  "total": 22000000,
+  "description": "Cloud service"
+}
+```
+
+Đây mới chỉ là:
+
+> **Dữ liệu chứng từ nói gì.**
+
+Chưa phải:
+
+> **Hạch toán thế nào.**
+
+---
+
+# 14. Kiểm tra dữ liệu chứng từ
+
+Code kiểm tra:
+
+```text
+- có đủ trường bắt buộc không;
+- subtotal + tax = total không;
+- ngày hợp lệ không;
+- currency hợp lệ không;
+- invoice number có không;
+- nhận diện được supplier không.
+```
+
+Nếu lỗi:
+
+```text
+NEED_ACCOUNTANT
+```
+
+hoặc:
+
+```text
+WAITING_CLIENT
 ```
 
 ---
 
-## 11.3. Suggest
+# 15. Bước 3 — Xác định nghiệp vụ kế toán
 
-AI có thể đề xuất:
+Ví dụ:
 
 ```text
-Expense Category:
-Marketing Expense
+Hóa đơn AWS
+↓
+chi phí cloud
+↓
+chi phí vận hành CNTT
+↓
+công nợ phải trả nhà cung cấp
+```
 
-GL Suggestion:
-642
+Đây mới là bước kế toán thực sự.
 
-VAT:
-Potentially deductible
+---
 
-Confidence:
-93%
+# 16. Thứ tự ra quyết định
+
+Hệ thống phải xử lý theo thứ tự:
+
+```text
+1. Rule chắc chắn
+2. Mapping lịch sử
+3. Business rule
+4. AI gợi ý
+5. Kế toán viên quyết định
+6. Kế toán trưởng quyết định
+```
+
+AI không được đứng đầu.
+
+---
+
+# 17. Ví dụ phân loại
+
+```text
+Nhận hóa đơn
+    ↓
+Nhà cung cấp đã biết?
+   ┌────┴────┐
+  Có        Không
+  ↓           ↓
+Mapping cũ   Rule/AI gợi ý
+  ↓           ↓
+Số tiền bất thường?
+   ┌────┴────┐
+ Không       Có
+ ↓            ↓
+Ready       Review
 ```
 
 ---
 
-## 11.4. Human Review
+# 18. Journal Draft — Bút toán nháp
 
-Nếu confidence thấp:
+AI hoặc rule không được ghi thẳng vào sổ.
 
-```text
-AI confidence < 90%
-        ↓
-ACCOUNTANT REVIEW
-```
+Chỉ tạo:
 
-Nếu material:
+> **Journal Draft = bút toán nháp.**
+
+Ví dụ:
 
 ```text
-Amount > configured threshold
-        ↓
-SENIOR REVIEW
+Nợ: Chi phí cloud
+Có: Phải trả nhà cung cấp
+Số tiền: 22.000.000
+Nhà cung cấp: AWS
+Nguồn: Invoice 000123
 ```
 
 ---
 
-# 12. Bank Reconciliation Automation
+# 19. Kiểm tra bút toán nháp
 
-Một trong các khu vực nên ưu tiên automation cao.
-
-Input:
+Hệ thống tự kiểm tra:
 
 ```text
-Bank transactions
-Invoices
-Receipts
-Payments
-Contracts
-AR/AP
+Nợ = Có
+Tài khoản tồn tại
+Tài khoản được phép hạch toán
+Kỳ chưa khóa
+Số tiền khớp chứng từ
+Đối tượng công nợ đầy đủ
+Thông tin thuế hợp lệ
 ```
 
-Matching:
+Nếu không đạt:
 
 ```text
-Amount
-Date
-Counterparty
-Reference
-Invoice number
-Description
+BLOCKED
 ```
 
-Output:
+---
+
+# 20. Phân loại rủi ro
+
+## Thấp
+
+Ví dụ:
 
 ```text
-MATCHED
-PARTIAL_MATCH
-NO_MATCH
-AMBIGUOUS
+- vendor quen thuộc;
+- cùng tài khoản như các tháng trước;
+- số tiền nhỏ;
+- chứng từ đầy đủ.
 ```
 
-Workflow:
+## Trung bình
+
+```text
+- vendor mới;
+- loại chi phí mới;
+- số tiền khác thường;
+- thiếu thông tin phụ.
+```
+
+## Cao
+
+```text
+- giao dịch nước ngoài;
+- bên liên quan;
+- hoàn tiền;
+- bút toán tay lớn;
+- điều chỉnh doanh thu;
+- vấn đề thuế;
+- hợp đồng bất thường.
+```
+
+---
+
+# 21. Điều hướng review
+
+```text
+LOW
+→ kế toán viên review nhanh
+
+MEDIUM
+→ kế toán viên review đầy đủ
+
+HIGH
+→ kế toán trưởng review
+```
+
+Mục tiêu:
+
+> Người giỏi chỉ tập trung vào việc thật sự cần judgment.
+
+---
+
+# 22. Khi cần hỏi khách hàng
+
+Ví dụ:
+
+```text
+Chuyển khoản: 18.000.000
+Nội dung: "CK THANH TOAN"
+Không match hóa đơn
+Không rõ đối tượng
+```
+
+Kế toán không biết.
+
+Hệ thống tạo:
+
+```text
+Client Action
+```
+
+Ví dụ nội dung khách nhìn thấy:
+
+> Vui lòng xác nhận khoản chuyển 18.000.000 ngày 12/09 dùng để thanh toán cho nội dung nào.
+
+Accounting Case chuyển:
+
+```text
+WAITING_CLIENT
+```
+
+Khách trả lời xong → tiếp tục xử lý.
+
+---
+
+# 23. Client Action là object riêng
+
+Fields:
+
+```text
+id
+tenant_id
+case_id
+action_type
+question
+status
+due_date
+assigned_client_user
+response
+created_at
+resolved_at
+```
+
+Trạng thái:
+
+```text
+OPEN
+ANSWERED
+RESOLVED
+CANCELLED
+```
+
+---
+
+# 24. Bước 4 — Đối chiếu ngân hàng
+
+Ý nghĩa:
+
+> Giao dịch thực tế trên ngân hàng phải được giải thích bằng nghiệp vụ kế toán.
+
+Ví dụ:
+
+```text
+Ngân hàng:
+
++55m Client ABC
+-18m XYZ
+-5.2m AWS
+```
+
+Trong kế toán:
+
+```text
+ABC invoice 55m
+AWS invoice 5.2m
+XYZ chưa rõ
+```
+
+Kết quả:
+
+```text
+ABC → MATCHED
+AWS → MATCHED
+XYZ → UNMATCHED
+```
+
+---
+
+# 25. Luồng match ngân hàng
 
 ```text
 Bank Transaction
       ↓
-Auto Match
+Tìm candidate
       ↓
-┌─────┴──────┐
-↓            ↓
-Match       No Match
-↓             ↓
-Post         Exception Queue
+So sánh:
+- số tiền
+- đối tượng
+- invoice number
+- ngày
+- description
+      ↓
+Tính match score
+      ↓
+Confidence cao?
+ ┌────┴────┐
+Có        Không
+↓           ↓
+Gợi ý     Review Queue
 ```
 
 ---
 
-# 13. Missing Document Detection
+# 26. Công nợ phải thu — AR
 
-Đây là một differentiation rất mạnh.
+AR = tiền khách hàng còn nợ doanh nghiệp.
 
 Ví dụ:
 
 ```text
-Bank:
--50,000,000 VND
-Supplier: ABC
-        ↓
-No invoice
-No contract
-        ↓
-Exception:
-MISSING_SUPPORTING_DOCUMENT
+Hóa đơn: 100m
+Khách trả: 60m
+Còn phải thu: 40m
 ```
 
-System thông báo:
-
-> Khoản thanh toán 50.000.000đ ngày 15/09 chưa có đủ chứng từ.
-
-Không đợi cuối tháng.
-
----
-
-# 14. Sales Accounting Automation
+Theo dõi:
 
 ```text
-Quotation
-   ↓
-Contract
-   ↓
-Delivery / Acceptance
-   ↓
-Invoice
-   ↓
-AR
-   ↓
-Collection
-```
-
-Automation:
-
-- đọc hợp đồng
-- extract giá trị
-- extract payment term
-- extract milestone
-- nhắc invoice
-- tạo receivable
-- match payment
-- overdue alert
-
-Ví dụ:
-
-```text
-Contract:
-Payment due = 15 days
-        ↓
-Invoice issued
-        ↓
-Due date generated
-        ↓
-Bank not matched
-        ↓
-17 days overdue
-        ↓
-ALERT
-```
-
----
-
-# 15. AR Automation
-
-System tự động tạo aging:
-
-```text
-Customer A    20m    5 days
-Customer B    80m    32 days ⚠
-Customer C    35m    61 days ⚠⚠
-```
-
-Rules:
-
-```text
-> 30 days → Warning
-> 60 days → High
-> 90 days → Critical
-```
-
-Có thể hỗ trợ:
-
-- auto reminder draft
-- collection task
-- owner alert
-
----
-
-# 16. AP Automation
-
-System theo dõi:
-
-```text
-Supplier
-Invoice
-Amount
-Due date
-Payment status
-Supporting docs
-```
-
-Dashboard:
-
-```text
-7 ngày tới cần trả:
-125,000,000
-```
-
----
-
-# 17. Payroll Automation
-
-Input:
-
-```text
-Employee master
-Attendance
-Leave
-Salary
-Bonus
-Allowance
-Deduction
-Tax profile
-Insurance
-```
-
-Pipeline:
-
-```text
-Input
- ↓
-Validation
- ↓
-Payroll calculation
- ↓
-PIT calculation
- ↓
-BHXH calculation
- ↓
-Anomaly detection
- ↓
-HR / Accountant review
- ↓
-Approve
- ↓
-Payslip / payment file
-```
-
-AI/rules phát hiện:
-
-```text
-Salary +45% month-over-month
-Unknown employee
-Negative salary
-Allowance unusually high
-Missing tax code
-```
-
----
-
-# 18. Tax Workflow Automation
-
-Không để kế toán tự nhớ deadline.
-
-System quản lý:
-
-```text
-Customer
-Tax type
-Period
-Deadline
-Preparation status
-Review status
-Submission status
-Payment status
-```
-
-Ví dụ:
-
-```text
-VAT Q3
-Preparation     Done
-Review          Done
-Submit          Pending
-Payment         Pending
-Due             30/10
-```
-
----
-
-# 19. Continuous Accounting
-
-Không nên đợi đến cuối tháng.
-
-Traditional:
-
-```text
-Ngày 30
-↓
-gom dữ liệu
-↓
-kiểm tra
-↓
-phát hiện lỗi
-```
-
-New model:
-
-```text
-Ngày 01 → Ngày 30
-
-Invoice   → Check
-Bank      → Reconcile
-Expense   → Check
-Contract  → Check
-Payment   → Check
-AR/AP     → Monitor
-```
-
-Mục tiêu:
-
-> Phát hiện vấn đề càng gần thời điểm phát sinh càng tốt.
-
----
-
-# 20. Exception-Driven Accounting
-
-Kế toán viên không nên xem mọi transaction.
-
-Kế toán chỉ xem:
-
-```text
-Exception Queue
-```
-
-Ví dụ:
-
-```text
-Customer A
-3 unmatched transactions
-2 invoices duplicate
-1 missing contract
-
-Customer B
-1 payroll anomaly
-
-Customer C
-2 tax validation failures
-```
-
-Đây là màn hình quan trọng nhất của internal platform.
-
----
-
-# 21. Exception Model
-
-Mỗi exception có:
-
-```text
-id
 customer
-type
-severity
-source
-description
-detected_at
-owner
-status
-due_at
-resolution
-reviewer
-audit_log
+invoice
+due_date
+original_amount
+paid_amount
+outstanding_amount
+days_overdue
 ```
 
-Severity:
+Trạng thái:
 
 ```text
-LOW
-MEDIUM
-HIGH
-CRITICAL
+OPEN
+PARTIALLY_PAID
+PAID
+OVERDUE
+WRITTEN_OFF
 ```
 
 ---
 
-# 22. Risk-Based Review
+# 27. Công nợ phải trả — AP
 
-Không review mọi thứ như nhau.
+AP = tiền doanh nghiệp còn phải trả nhà cung cấp.
 
-Ví dụ:
+Theo dõi:
 
 ```text
-Risk Score =
-Transaction Value
-+ AI Confidence
-+ Rule Violations
-+ Counterparty Risk
-+ Tax Impact
-+ Historical Pattern
+supplier
+invoice
+due_date
+paid_amount
+outstanding_amount
 ```
+
+---
+
+# 28. Luồng bảng lương
+
+MVP không cần tự tính payroll.
 
 Flow:
 
 ```text
-LOW
-→ auto approve / sampling
+Nhận bảng lương đã duyệt
+↓
+Kiểm tra tổng
+↓
+Tạo Accounting Case
+↓
+Tạo Journal Draft
+↓
+Review
+↓
+Ghi nhận
+```
 
-MEDIUM
-→ accountant review
+Dữ liệu lương phải có quyền truy cập nghiêm ngặt hơn.
 
-HIGH
-→ senior accountant
+---
 
-CRITICAL
-→ senior + manager
+# 29. Luồng chi phí
+
+```text
+Nhận invoice/receipt
+↓
+Vendor là ai?
+↓
+Chi phí gì?
+↓
+Có phục vụ hoạt động kinh doanh không?
+↓
+Đủ chứng từ chưa?
+↓
+Đề xuất hạch toán
+↓
+Review
+```
+
+Thiếu hồ sơ:
+
+```text
+Client Action
+```
+
+Không được âm thầm ghi nhận.
+
+---
+
+# 30. Luồng doanh thu
+
+Mô hình đơn giản:
+
+```text
+Hợp đồng
+↓
+Dịch vụ thực hiện
+↓
+Xuất hóa đơn
+↓
+Công nợ phải thu
+↓
+Khách thanh toán
+```
+
+Các case phức tạp về revenue recognition đưa cho Senior review.
+
+---
+
+# 31. Chốt sổ cuối tháng — Month-End Closing
+
+Closing nghĩa là:
+
+> Xác nhận dữ liệu tháng đã đủ, đã đối chiếu và đã review để có thể hoàn tất báo cáo/thuế.
+
+---
+
+# 32. Workflow Closing
+
+```text
+BẮT ĐẦU CHỐT THÁNG
+        ↓
+1. Chứng từ đủ chưa?
+        ↓
+2. Ngân hàng đã đối chiếu?
+        ↓
+3. AR đã review?
+        ↓
+4. AP đã review?
+        ↓
+5. Lương đã ghi nhận?
+        ↓
+6. Doanh thu đủ?
+        ↓
+7. Chi phí đủ?
+        ↓
+8. Tax checklist?
+        ↓
+9. Exception đã xử lý?
+        ↓
+10. Senior review
+        ↓
+CHỐT THÁNG
 ```
 
 ---
 
-# 23. Human Review Model
+# 33. Trạng thái Closing
 
-## Level 1 — Accountant
+```text
+NOT_STARTED
+↓
+IN_PROGRESS
+↓
+WAITING_CLIENT
+↓
+READY_FOR_REVIEW
+↓
+UNDER_REVIEW
+↓
+APPROVED
+↓
+CLOSED
+```
 
-Xử lý:
-
-- missing docs
-- mapping
-- mismatch
-- common exception
-
-## Level 2 — Senior Accountant
-
-Xử lý:
-
-- unusual accounting treatment
-- material amount
-- tax impact
-- complex contract
-
-## Level 3 — Chief Accountant / Tax Specialist
-
-Xử lý:
-
-- tax interpretation
-- audit issue
-- high-risk transaction
-- authority response
-- material adjustment
+Không được `CLOSED` nếu còn blocker bắt buộc.
 
 ---
 
-# 24. Internal Operations Platform
-
-Đây là sản phẩm nên build trước Client Portal.
-
-Dashboard:
+# 34. Checklist ví dụ
 
 ```text
-TODAY
+Tháng 09/2026
 
-Total Customers        72
-
-Auto Processed        1,284
-Need Review              68
-High Risk                 9
-Overdue Tasks             4
-```
-
-Customer view:
-
-```text
-ABC COMPANY
-
-Documents
-Received              52
-Processed             47
-Need review            3
-Missing                2
-
-Bank
-Matched               91%
-Unmatched               4
-
-Tax
-VAT                 READY
-PIT                 REVIEW
-CIT                 N/A
-
-Exceptions
-High                    1
-Medium                  3
+[✓] Đã thu đủ hóa đơn bán ra
+[✓] Đã thu đủ hóa đơn mua vào
+[✓] Bank 001 đã reconcile
+[!] Bank 002 còn 2 giao dịch chưa rõ
+[✓] AR đã review
+[✓] AP đã review
+[ ] Chưa có payroll confirmation
+[ ] Chưa review VAT
+[ ] Chưa Senior review
 ```
 
 ---
 
-# 25. Client Portal
+# 35. Màn hình kế toán viên
 
-Portal phía khách nên cực đơn giản.
-
-Không để khách thấy:
+Khi login:
 
 ```text
-Journal Entry
-Chart of Accounts
-General Ledger
-Debit/Credit
+HÔM NAY
+
+Critical              2
+Đến hạn hôm nay       8
+Đang chờ khách        12
+Cần review            6
+
+ABC Co.
+- 2 bank transaction chưa match
+- Closing tháng 09: 78%
+- đang chờ 1 hợp đồng
+
+XYZ Co.
+- 3 invoice cần review
+- VAT checklist hết hạn ngày mai
 ```
 
-Nên hiển thị:
+Kế toán không cần nhớ việc từ Zalo.
+
+---
+
+# 36. Màn hình quản lý
 
 ```text
-Tiền
-Thuế
-Công nợ
-Chứng từ thiếu
-Việc cần làm
-Báo cáo
-Hỏi kế toán
+KHÁCH HÀNG
+
+50 active
+
+CÔNG VIỆC
+17 waiting client
+11 review required
+4 closing at risk
+
+DEADLINE
+6 tax deadlines tuần này
+
+CAPACITY
+Accountant A: 12 clients
+Accountant B: 18 clients
+Accountant C: 10 clients
 ```
+
+Đây là nơi thay Excel quản lý nội bộ.
+
+---
+
+# 37. Portal khách hàng
+
+MVP chỉ cần 4 màn hình:
+
+```text
+1. Tổng quan
+2. Chứng từ
+3. Việc cần tôi xử lý
+4. Báo cáo
+```
+
+Không cần build quá nhiều.
+
+---
+
+# 38. Màn hình tổng quan của khách
 
 Ví dụ:
 
 ```text
-THÁNG 09
+Kế toán tháng 09
 
-Chứng từ
-47/50 đã nhận
+Tiến độ: 82%
 
-Thiếu:
-- Bank statement
-- Invoice ABC
-- Contract XYZ
+Cần bạn xử lý: 2
+Thiếu chứng từ: 3
+Thuế dự kiến: 18.5m
+Mục tiêu closing: 10/10
 
-Thuế dự kiến
-VAT: 14.2m
-PIT: 2.8m
-
-Khách đang nợ
-82m
-
-Quá hạn
-35m
-
-Việc cần xử lý
-3
+Cần chú ý:
+- 1 công nợ khách hàng quá hạn
+- 2 giao dịch ngân hàng cần xác nhận
 ```
 
 ---
 
-# 26. Customer Interaction Model
+# 39. Internal Workflow và Client Workflow
 
-Không ép khách thay đổi hành vi.
+Bên trong:
 
-Khách vẫn có thể dùng:
+```text
+extract
+validate
+account mapping
+VAT check
+bank match
+review
+closing
+```
 
-- Zalo
-- email
-- upload link
-- portal
+Khách chỉ thấy:
 
-System đứng phía sau gom tất cả.
+```text
+Đã nhận
+Đang xử lý
+Cần bạn xác nhận
+Hoàn tất
+```
 
 Nguyên tắc:
 
-> **Công nghệ phải thích nghi với khách hàng, không bắt khách hàng thích nghi với công nghệ.**
+> Complexity inside. Simplicity outside.
 
 ---
 
-# 27. AI Q&A
-
-Owner có thể hỏi:
+# 40. Domain Model lõi
 
 ```text
-Tháng này chi phí tăng vì sao?
-```
-
-AI trả lời dựa trên dữ liệu công ty:
-
-```text
-Chi phí tháng 9 tăng 18%.
-
-Các khoản tăng chính:
-Marketing       +42m
-Legal           +18m
-Salary          +12m
-```
-
-Hoặc:
-
-```text
-Khách nào nợ trên 30 ngày?
-```
-
-Hoặc:
-
-```text
-7 ngày tới tôi cần chi bao nhiêu?
-```
-
-RAG phải truy xuất từ:
-
-- accounting data
-- invoice
-- bank
-- AR/AP
-- contract
-- payroll
-- reports
-
----
-
-# 28. Audit Trail
-
-Mọi thao tác quan trọng phải trace được.
-
-Ví dụ:
-
-```text
-09:12
-Invoice received
-
-09:13
-OCR completed
-
-09:13
-AI classified as marketing expense
-
-09:13
-Rule VAT_CHECK passed
-
-09:14
-Bank transaction matched
-
-09:15
-Auto suggestion created
-
-10:40
-Accountant approved
-
-11:10
-Senior reviewed
-```
-
-Không được để AI tạo thay đổi mà không trace.
-
----
-
-# 29. Explainability
-
-Mỗi AI suggestion phải trả lời được:
-
-```text
-Why?
-Based on what?
-Confidence?
-Which document?
-Which rule?
-```
-
-Ví dụ:
-
-```text
-Suggested Account:
-Marketing Expense
-
-Reason:
-Description contains "Facebook Ads"
-Supplier previously mapped to Marketing
-6 similar transactions existed
-
-Confidence:
-96%
-```
-
----
-
-# 30. Confidence Threshold
-
-Ví dụ:
-
-```text
-> 97%
-Auto-process
-
-90–97%
-Accountant quick review
-
-70–90%
-Detailed review
-
-< 70%
-Manual processing
-```
-
-Không hardcode toàn bộ hệ thống.
-
-Threshold phải config theo nghiệp vụ.
-
----
-
-# 31. Automation KPI
-
-Không nên đo số feature AI.
-
-Nên đo:
-
-## Operational
-
-```text
-Auto Processing Rate
-Exception Rate
-Manual Touch Rate
-Average Review Time
-Cost per Transaction
-Transactions per Accountant
-```
-
-## Quality
-
-```text
-Error Rate
-Rework Rate
-Tax Adjustment Rate
-Review Rejection Rate
-Duplicate Detection Rate
-Reconciliation Accuracy
-```
-
-## Customer
-
-```text
-Response Time
-Missing Document Resolution Time
-Monthly Close Time
-Customer Retention
-NPS
-```
-
----
-
-# 32. North Star Metric
-
-Đề xuất:
-
-> **Manual Touch Rate**
-
-Công thức:
-
-```text
-Transactions requiring human intervention
------------------------------------------
-Total transactions
-```
-
-Ví dụ:
-
-```text
-Total: 10,000
-
-Human touched: 1,500
-
-Manual Touch Rate = 15%
-```
-
-Mục tiêu:
-
-```text
-Phase 1: 50%
-Phase 2: 30%
-Phase 3: 20%
-Phase 4: 10–15%
-```
-
-Không được giảm touch rate bằng cách giảm kiểm soát.
-
----
-
-# 33. Productivity KPI
-
-Ví dụ:
-
-Traditional:
-
-```text
-1 accountant
-20–30 customers
-```
-
-Target:
-
-```text
-1 accountant
-50–100 customers
-```
-
-Tùy complexity.
-
-Không đặt con số cứng trước khi benchmark thực tế.
-
----
-
-# 34. Unit Economics
-
-Ví dụ giả định:
-
-```text
-80 customers
-Average fee: 2.5m
-
-Revenue:
-200m / month
-```
-
-Nếu technology làm giảm:
-
-```text
-manual input
-reconciliation
-document chasing
-report generation
-```
-
-thì cost phục vụ mỗi khách giảm.
-
-Đó chính là lợi thế kinh tế.
-
----
-
-# 35. Moat
-
-Moat không phải model AI.
-
-Các công ty khác cũng có thể dùng GPT/Claude/Gemini.
-
-Moat thật sự là:
-
-```text
-Accounting workflow
-+
-Rule Library
-+
-Customer transaction patterns
-+
-Exception dataset
-+
-Human review process
-+
-Automation integrations
-+
-Historical resolutions
-```
-
-Sau một thời gian:
-
-```text
-Exception
-    ↓
-Human resolves
-    ↓
-Resolution captured
-    ↓
-Rule / AI improves
-    ↓
-Same exception appears less often
-```
-
----
-
-# 36. Accounting Knowledge Base
-
-System nên có knowledge base:
-
-```text
-Accounting Rules
-Tax Rules
-Internal Policies
-Customer-specific Rules
-Industry Rules
-Past Decisions
-SOP
-Review Checklist
-```
-
-Ví dụ:
-
-```text
-Rule:
-If supplier = Facebook
-AND description = ads
-→ suggest Marketing Expense
-```
-
-Customer-specific:
-
-```text
-Customer ABC:
-AWS invoices → Cloud Infrastructure
-```
-
----
-
-# 37. Customer Profile
-
-Mỗi customer cần configuration riêng:
-
-```text
-Company profile
-Industry
-Tax method
-Accounting method
-Bank accounts
-Invoice settings
-Payroll settings
-Chart mapping
-Approval rules
-Risk thresholds
-Recurring vendors
-Recurring customers
-```
-
----
-
-# 38. Workflow Engine
-
-Không hardcode business process vào source code toàn bộ.
-
-Workflow nên configurable.
-
-Ví dụ:
-
-```text
-Invoice
- ↓
-OCR
- ↓
-Validation
- ↓
-Match
- ↓
-Review
- ↓
-Approve
-```
-
-Customer khác:
-
-```text
-Invoice
- ↓
-OCR
- ↓
-Validation
- ↓
-Department Approval
- ↓
-Accounting Review
- ↓
-Approve
-```
-
----
-
-# 39. Rule Engine
-
-Các loại rule:
-
-## Validation
-
-```text
-amount > 0
-invoice_date valid
-tax_code valid
-```
-
-## Accounting
-
-```text
-vendor category → GL suggestion
-```
-
-## Tax
-
-```text
-VAT condition
-```
-
-## Risk
-
-```text
-transaction > threshold
-```
-
-## Workflow
-
-```text
-high risk → senior approval
-```
-
----
-
-# 40. Initial MVP
-
-Không làm tất cả ngay.
-
-## Phase 1
-
-Chỉ tập trung:
-
-```text
-1. Customer Management
-2. Document Intake
-3. OCR / Extraction
-4. Invoice Processing
-5. Bank Import
-6. Auto Reconciliation
-7. Exception Queue
-8. Accountant Review
-9. Tax Calendar
-10. Client Status
-```
-
-Đây đã đủ tạo differentiation mạnh.
-
----
-
-# 41. MVP Customer Flow
-
-```text
-Customer
-   ↓
-Send Invoice
-   ↓
-System receives
-   ↓
-OCR
-   ↓
-Validate
-   ↓
-Match Bank
-   ↓
-Suggest Accounting
-   ↓
-Accountant Review
-   ↓
-Processed
-```
-
----
-
-# 42. MVP Internal Screens
-
-Cần tối thiểu:
-
-```text
-Dashboard
-Customers
-Documents
-Transactions
-Reconciliation
-Exceptions
-Tasks
-Tax Calendar
-Reports
-Audit Logs
-```
-
----
-
-# 43. Không nên build quá sớm
-
-Không cần ngay:
-
-- custom ERP
-- full inventory
-- manufacturing
-- project costing
-- mobile native app
-- custom video call
-- CRM phức tạp
-- advanced BI
-- marketplace
-- accounting software replacement
-
-Mục tiêu:
-
-> **Không replace phần mềm kế toán. Tối ưu service operation trước.**
-
----
-
-# 44. Integration Strategy
-
-Nền tảng nên đứng ở giữa:
-
-```text
-MISA / Accounting Software
-Bank
-E-Invoice
-Email
-Drive
-Zalo
-Payroll Source
-
-        ↓
-
-Accounting Automation Platform
-```
-
-Không cần build ledger engine hoàn chỉnh ngay nếu accounting software hiện tại đã xử lý tốt.
-
----
-
-# 45. Human-in-the-Loop Design
-
-Mọi AI action quan trọng nên hỗ trợ:
-
-```text
-Accept
-Reject
-Modify
-Explain
-Escalate
-```
-
-Human feedback được lưu lại.
-
-Ví dụ:
-
-```text
-AI: Office Expense
-
-Accountant:
-Change → Marketing Expense
-
-Feedback stored
-```
-
----
-
-# 46. Learning Loop
-
-```text
-AI suggestion
-      ↓
-Human correction
-      ↓
-Store feedback
-      ↓
-Update mapping / prompt / rule
-      ↓
-Next similar transaction
-      ↓
-Higher accuracy
-```
-
-Đây là learning system thực tế.
-
-Không nhất thiết phải train model riêng.
-
----
-
-# 47. Service Quality Model
-
-Khách hàng cần SLA rõ.
-
-Ví dụ:
-
-```text
-Document acknowledgment:
-< 1 hour
-
-Standard exception:
-< 1 business day
-
-High priority:
-< 4 hours
-
-Monthly close:
-by day X
-
-Report:
-by day Y
-```
-
-SLA phải visible trên internal dashboard.
-
----
-
-# 48. Continuous Controls
-
-Hệ thống chạy controls hàng ngày.
-
-Ví dụ:
-
-```text
-Duplicate invoice
-Missing invoice
-Unmatched bank
-Invoice without contract
-Payment without supporting docs
-Overdue AR
-Unusual expense
-Payroll anomaly
-Tax deadline
-```
-
-Output:
-
-```text
-CONTROL FAILED
-```
-
-thay vì đợi người nhớ kiểm tra.
-
----
-
-# 49. Monthly Close Automation
-
-```text
-Period End
-    ↓
-Document completeness
-    ↓
-Bank reconciliation
-    ↓
-AR reconciliation
-    ↓
-AP reconciliation
-    ↓
-Payroll reconciliation
-    ↓
-Tax reconciliation
-    ↓
-Exception clearance
-    ↓
-Review
-    ↓
-Close
-```
-
-Dashboard:
-
-```text
-September Close
-
-Documents      ✓
-Bank           ✓
-AR             ✓
-AP             ✓
-Payroll        ✓
-Tax            !
-Review         Pending
-
-Close progress: 86%
-```
-
----
-
-# 50. Customer Experience
-
-Khách hàng không nên hỏi:
-
-> Kế toán làm tới đâu rồi?
-
-Portal/status message đã trả lời.
-
-Không nên hỏi:
-
-> Thiếu gì?
-
-System đã có checklist.
-
-Không nên hỏi:
-
-> Bao giờ đóng thuế?
-
-System đã nhắc.
-
-Không nên hỏi:
-
-> Khách nào nợ tôi?
-
-Dashboard đã có.
-
----
-
-# 51. Pricing Logic
-
-Không nhất thiết cạnh tranh bằng giá thấp.
-
-Pricing có thể dựa trên:
-
-```text
-Base Fee
-+
-Transaction Volume
-+
-Employee Count
-+
-Service Modules
-+
-Complexity
-```
-
-Ví dụ:
-
-```text
-Accounting
-+ Payroll
-+ AR/AP
-+ Management Report
-```
-
-Khách mua dịch vụ quen thuộc.
-
-Technology giúp mình có margin cao hơn.
-
----
-
-# 52. Go-to-Market
-
-Không quảng cáo:
-
-> "AI-powered autonomous accounting platform"
-
-Nên quảng cáo:
-
-> "Dịch vụ kế toán trọn gói cho doanh nghiệp nhỏ."
-
-Sau đó differentiation:
-
-```text
-✓ thiếu chứng từ báo sớm
-✓ theo dõi tiến độ rõ ràng
-✓ công nợ cập nhật
-✓ kiểm tra nhiều lớp
-✓ giảm nhập liệu thủ công
-✓ phản hồi nhanh
-```
-
----
-
-# 53. Initial Sales Proposition
-
-Một proposition đơn giản:
-
-> **Bạn vẫn có kế toán phụ trách như dịch vụ truyền thống, nhưng phía sau là hệ thống tự động theo dõi chứng từ, đối chiếu dữ liệu, phát hiện lỗi và nhắc việc liên tục.**
-
----
-
-# 54. Competitive Strategy
-
-Không cố thắng công ty lớn bằng:
-
-```text
-nhiều chi nhánh hơn
-SEO mạnh hơn
-giá rẻ hơn
-dịch vụ nhiều hơn
-```
-
-Nên thắng bằng:
-
-```text
-Operational Excellence
-Automation
-Faster Close
-Lower Error Rate
-Better Visibility
-Better Client Experience
-```
-
----
-
-# 55. Key Differentiators
-
-## 1. Continuous Accounting
-
-Không đợi cuối kỳ.
-
-## 2. Exception-Driven Operation
-
-Kế toán xử lý exception thay vì nhập liệu.
-
-## 3. Automated Reconciliation
-
-Giảm workload thủ công.
-
-## 4. Missing Document Detection
-
-Phát hiện sớm.
-
-## 5. Human Review
-
-Không để AI tự quyết định nghiệp vụ rủi ro.
-
-## 6. Transparent Workflow
-
-Khách biết trạng thái.
-
-## 7. Management Insight
-
-Owner nhìn được tiền, công nợ, thuế.
-
----
-
-# 56. Security Principles
-
-Dữ liệu kế toán rất nhạy cảm.
-
-Bắt buộc:
-
-```text
-Tenant Isolation
-Encryption at Rest
-Encryption in Transit
-RBAC
-Audit Log
-MFA
-Least Privilege
-Data Retention
-Backup
-Disaster Recovery
-```
-
-AI access phải theo:
-
-```text
-Customer Boundary
-```
-
-Không được rò dữ liệu giữa customers.
-
----
-
-# 57. AI Security
-
-Không đưa toàn bộ database thẳng vào model.
-
-Nên có:
-
-```text
-AI Gateway
- ↓
-Access Control
- ↓
-Data Minimization
- ↓
-Prompt Construction
- ↓
-Model
-```
-
-PII/sensitive data cần policy riêng.
-
----
-
-# 58. Data Architecture
-
-Core entities:
-
-```text
-Customer
+Tenant
 User
-Employee
-Supplier
-Buyer
+TenantMembership
+
 Document
-Invoice
+DocumentVersion
+NormalizedDocument
+
+AccountingCase
+CaseEvent
+
+Party
+
+Account
+JournalDraft
+JournalDraftLine
+
+BankAccount
 BankTransaction
-Payment
-Receipt
-Contract
-JournalSuggestion
-Exception
-Task
-TaxPeriod
-Report
+Reconciliation
+
+Receivable
+Payable
+
+ClientAction
+
+Review
+
+ClosingPeriod
+ClosingTask
+
+Rule
+RuleVersion
+
+AISuggestion
+
 AuditEvent
 ```
 
 ---
 
-# 59. Event-Driven Model
-
-Có thể thiết kế dạng event:
+# 41. AccountingCase entity
 
 ```text
-DOCUMENT_RECEIVED
-DOCUMENT_CLASSIFIED
-DOCUMENT_EXTRACTED
-VALIDATION_FAILED
-TRANSACTION_MATCHED
-EXCEPTION_CREATED
-REVIEW_COMPLETED
-TAX_READY
-REPORT_READY
+id
+tenant_id
+case_type
+source_type
+source_id
+status
+risk_level
+assigned_to
+period
+priority
+created_at
+updated_at
 ```
 
-Ưu điểm:
-
-- trace tốt
-- automation dễ
-- scalable
-- integration dễ
-
----
-
-# 60. Example Full Flow
-
-Khách gửi hóa đơn qua email.
+`case_type`:
 
 ```text
-EMAIL_RECEIVED
-        ↓
-Attachment extracted
-        ↓
-Customer detected
-        ↓
-DOCUMENT_RECEIVED
-        ↓
-OCR
-        ↓
-INVOICE_DETECTED
-        ↓
-Fields extracted
-        ↓
-Validation
-        ↓
-Duplicate check
-        ↓
-Bank matching
-        ↓
-Expense classification
-        ↓
-GL suggestion
-        ↓
-Risk score
-        ↓
-Low risk
-        ↓
-Accountant quick review
-        ↓
-Approved
-        ↓
-Accounting software sync
-        ↓
-Audit log
+PURCHASE
+SALE
+BANK_TRANSACTION
+PAYROLL
+REFUND
+MANUAL_ADJUSTMENT
+OTHER
 ```
 
 ---
 
-# 61. Example Exception Flow
+# 42. Case Event
+
+Phải lưu lịch sử:
 
 ```text
-Payment:
-30,000,000
+CASE_CREATED
+SOURCE_PARSED
+CLASSIFICATION_SUGGESTED
+CLIENT_INFO_REQUESTED
+CLIENT_RESPONDED
+REVIEW_REQUESTED
+APPROVED
+RECORDED
+RECONCILED
+CLOSED
+```
 
-No invoice
-No contract
+Không chỉ lưu trạng thái cuối.
 
-        ↓
+---
 
-Exception:
-MISSING_DOCUMENT
+# 43. Quy tắc chuyển trạng thái
 
-Severity:
-HIGH
+Ví dụ:
 
-        ↓
+```text
+NEW → DATA_READY
+```
 
-Accountant notified
+chỉ khi đã có source cần thiết.
 
-        ↓
+```text
+DATA_READY → UNDERSTOOD
+```
 
-Customer notified
+chỉ khi parse + validate xong.
 
-        ↓
+```text
+UNDERSTOOD → ACCOUNTING_PREPARED
+```
 
-Customer uploads invoice
+chỉ khi có Journal Draft.
 
-        ↓
+```text
+ACCOUNTING_PREPARED → APPROVED
+```
 
-System auto re-runs validation
+chỉ khi đúng người đã review.
 
-        ↓
+Backend phải reject transition sai.
 
-Exception resolved
+---
+
+# 44. Rule Engine
+
+Rule dùng cho logic chắc chắn.
+
+Ví dụ:
+
+```yaml
+id: KNOWN_VENDOR_AWS
+
+when:
+  vendor_tax_code: "..."
+
+then:
+  category: CLOUD_SERVICE
+  suggested_account: "642"
+  risk: LOW
+```
+
+Rule phải version.
+
+---
+
+# 45. AI dùng ở đâu?
+
+AI phù hợp cho:
+
+```text
+- đọc scan;
+- phân loại nội dung khó;
+- gợi ý match;
+- giải thích anomaly;
+- viết summary dễ hiểu cho khách.
+```
+
+AI không dùng cho:
+
+```text
+- tính Debit = Credit;
+- kiểm soát quyền;
+- check period closed;
+- unique invoice;
+- arithmetic.
 ```
 
 ---
 
-# 62. System Design Principle
+# 46. Contract đầu ra của AI
 
-Hệ thống không thay accountant.
+AI phải trả structured output:
 
-Hệ thống thay:
-
-```text
-copy
-paste
-download
-rename
-lookup
-match
-compare
-remind
-check repeatedly
+```json
+{
+  "decision": "CLOUD_SERVICE",
+  "confidence": 0.94,
+  "evidence": [
+    {
+      "field": "description",
+      "value": "AWS infrastructure services"
+    }
+  ]
+}
 ```
 
-Accountant giữ:
+Không có evidence → không được trust cao.
+
+---
+
+# 47. Review Object
 
 ```text
-judgement
-review
+id
+case_id
+review_type
+required_role
+status
 decision
-communication
-responsibility
+reviewed_by
+comment
+created_at
+reviewed_at
 ```
 
----
-
-# 63. Roadmap
-
-## Phase 1 — Internal Efficiency
-
-- intake
-- OCR
-- classify
-- invoice
-- bank
-- reconciliation
-- exception queue
-- review
-
-## Phase 2 — Customer Experience
-
-- client portal
-- tax status
-- document checklist
-- AR/AP
-- notifications
-
-## Phase 3 — AI Assistant
-
-- Q&A
-- report analysis
-- anomaly explanation
-- contract extraction
-
-## Phase 4 — Advanced Automation
-
-- auto processing
-- risk-based review
-- workflow optimization
-- predictive cashflow
-
----
-
-# 64. Build Order
-
-Đề xuất thứ tự:
+Types:
 
 ```text
-1. Map nghiệp vụ
-2. SOP chuẩn
-3. Define inputs/outputs
-4. Define rules
-5. Define exceptions
-6. Build internal workflow
-7. Add automation
-8. Add AI
-9. Add client visibility
-10. Optimize
+ACCOUNTING_REVIEW
+TAX_REVIEW
+SENIOR_REVIEW
+CLIENT_CONFIRMATION
 ```
-
-Không bắt đầu bằng AI chatbot.
 
 ---
 
-# 65. First Principle
+# 48. Ai được duyệt gì?
 
-Muốn automate một nghiệp vụ cần trả lời:
+Ví dụ policy:
 
 ```text
-Input là gì?
-Output là gì?
-Rule là gì?
-Exception là gì?
-Ai quyết định?
-Risk là gì?
-Evidence là gì?
+LOW
+→ Accountant
+
+MEDIUM
+→ Accountant
+
+HIGH
+→ Senior Accountant
+
+PERIOD_CLOSE
+→ Senior Accountant
 ```
 
-Nếu chưa trả lời rõ 6 câu này thì chưa nên code.
+Sau này cấu hình được.
 
 ---
 
-# 66. Automation Assessment Matrix
+# 49. Service Operations
 
-Mỗi workflow cần bảng:
-
-| Step | Input | Output | Rule | AI | Human | Risk |
-|---|---|---|---|---|---|---|
-| Receive invoice | File | Document | Yes | No | No | Low |
-| OCR | Image/PDF | Fields | No | Yes | No | Low |
-| Duplicate check | Invoice | Result | Yes | No | No | Medium |
-| Expense classify | Content | Category | Partial | Yes | Review | Medium |
-| VAT eligibility | Invoice | Result | Yes | Assist | Yes | High |
-| GL mapping | Invoice | Account | Partial | Yes | Yes | Medium |
-| Filing | Tax data | Submission | Yes | No | Approve | High |
-
----
-
-# 67. Definition of Done cho một automated workflow
-
-Một workflow chỉ coi là hoàn chỉnh khi có:
+Ngoài accounting nghiệp vụ, công ty dịch vụ còn phải quản:
 
 ```text
-Input
-Output
-Happy Path
-Exception Path
-Rules
-AI behavior
-Confidence threshold
-Human reviewer
-SLA
-Audit log
-Metrics
-Fallback
+- ai phụ trách khách nào;
+- workload;
+- deadline;
+- khách đang chờ gì;
+- closing tiến độ bao nhiêu;
+- SLA;
+- chất lượng.
 ```
+
+Đây là một domain riêng.
 
 ---
 
-# 68. Success Criteria
+# 50. Work Queue
 
-Business thành công khi đạt đồng thời:
+Nhân viên làm việc qua queue:
 
 ```text
-High automation
-+
-Low error rate
-+
-Fast response
-+
-Strong review
-+
-Satisfied customers
-+
-Positive unit economics
+1. Critical overdue
+2. Due today
+3. High-risk review
+4. Closing blocker
+5. Normal work
 ```
 
-Không coi việc AI làm được nhiều là mục tiêu.
+Không dựa vào trí nhớ.
 
 ---
 
-# 69. Final Product Philosophy
+# 51. Tạo task tự động
+
+```text
+Document invalid
+→ Review Task
+
+Bank transaction unknown
+→ Reconciliation Task
+
+Missing contract
+→ Client Action
+
+Closing blocked
+→ Closing Task
+```
+
+Nếu hệ thống đã biết cần làm gì thì không bắt người tạo task tay.
+
+---
+
+# 52. Deadline
+
+Nguồn deadline:
+
+```text
+Tax calendar
+Closing policy
+Client SLA
+Task due date
+```
+
+Fields:
+
+```text
+due_at
+priority
+escalation_at
+owner
+```
+
+---
+
+# 53. Escalation
+
+Ví dụ:
+
+```text
+Còn 2 ngày
+→ nhắc accountant
+
+Quá hạn
+→ accountant + manager
+
+Khách chưa trả lời
+→ reminder khách
+
+Closing có nguy cơ trễ
+→ manager alert
+```
+
+---
+
+# 54. Kiến trúc hệ thống
+
+MVP dùng Modular Monolith.
+
+```mermaid
+flowchart TB
+    Portal[Portal khách hàng]
+    Ops[Internal Operations]
+
+    Portal --> API
+    Ops --> API
+
+    API --> Cases[Accounting Cases]
+    API --> Docs[Documents]
+    API --> Acc[Accounting]
+    API --> Bank[Banking]
+    API --> Closing[Closing]
+    API --> Workflow[Workflow]
+    API --> Rules[Rules]
+    API --> AI[AI Orchestrator]
+    API --> Reporting[Reporting]
+    API --> Audit[Audit]
+
+    Docs --> Storage[(Object Storage)]
+
+    Cases --> DB[(PostgreSQL)]
+    Acc --> DB
+    Bank --> DB
+    Closing --> DB
+    Workflow --> DB
+    Rules --> DB
+    AI --> DB
+    Reporting --> DB
+    Audit --> DB
+
+    AI --> LLM[AI Provider]
+
+    Acc --> Adapter[Accounting System Adapter]
+    Adapter --> External[MISA / FAST / Other]
+```
+
+---
+
+# 55. Backend modules
+
+```text
+identity
+tenants
+clients
+documents
+cases
+parties
+accounting
+banking
+receivables
+payables
+reviews
+client-actions
+closing
+workflow
+rules
+ai
+reporting
+integrations
+audit
+```
+
+---
+
+# 56. Tables ban đầu
+
+```text
+tenants
+users
+tenant_memberships
+
+documents
+document_versions
+normalized_documents
+
+accounting_cases
+case_events
+
+parties
+
+accounts
+journal_drafts
+journal_draft_lines
+
+bank_accounts
+bank_transactions
+reconciliations
+
+receivables
+payables
+
+client_actions
+reviews
+
+closing_periods
+closing_tasks
+
+rules
+rule_versions
+
+ai_suggestions
+
+audit_events
+```
+
+---
+
+# 57. System of Record
+
+Giai đoạn đầu:
+
+```text
+MISA / FAST / phần mềm khách đang dùng
+=
+System of Record
+```
+
+Hệ thống của mình:
+
+```text
+workflow
+control
+automation
+review
+visibility
+```
+
+Không rebuild toàn bộ ledger ngay.
+
+---
+
+# 58. Integration Adapter
+
+```java
+interface AccountingSystemAdapter {
+
+    List<Account> fetchAccounts();
+
+    List<Party> fetchParties();
+
+    List<JournalEntry> fetchJournalEntries(
+        AccountingPeriod period
+    );
+
+    SyncResult syncApprovedDraft(
+        JournalDraft draft
+    );
+}
+```
+
+MVP có thể export/import thủ công trước.
+
+---
+
+# 59. API cơ bản
+
+```text
+POST /v1/documents
+
+GET /v1/work-items
+
+GET /v1/accounting-cases/{id}
+
+POST /v1/reviews/{id}/decision
+
+POST /v1/client-actions/{id}/response
+
+POST /v1/closing-periods/{period}/start
+```
+
+---
+
+# 60. Async Processing
+
+Các việc nặng chạy background:
+
+```text
+document extraction
+AI
+bank matching
+report generation
+anomaly scan
+```
+
+Flow:
+
+```text
+API
+↓
+save
+↓
+outbox/job
+↓
+return
+↓
+worker xử lý
+↓
+update Accounting Case
+```
+
+---
+
+# 61. Idempotency
+
+Bắt buộc cho:
+
+```text
+upload
+bank import
+integration sync
+callback
+```
+
+Dùng:
+
+```text
+source ID
+hash
+idempotency key
+```
+
+---
+
+# 62. Multi-Tenant
+
+Mọi bảng nghiệp vụ phải có:
+
+```text
+tenant_id
+```
+
+Tenant lấy từ auth context.
+
+Không tin `tenant_id` gửi lên từ frontend.
+
+---
+
+# 63. Audit Trail
+
+Phải biết:
+
+```text
+ai
+làm gì
+trên object nào
+lúc nào
+trước đó là gì
+sau đó là gì
+vì sao
+```
+
+Đặc biệt với:
+
+```text
+review
+journal change
+close period
+permission
+rule change
+client response
+AI suggestion
+```
+
+---
+
+# 64. Accounting Invariants
+
+Luôn đúng:
+
+```text
+Debit = Credit
+Closed period không sửa bình thường
+Posted entry không biến mất
+Mọi approval có actor
+Mọi AI suggestion có provenance
+Source document trace được
+Tenant không được lẫn dữ liệu
+```
+
+---
+
+# 65. Security
+
+Tối thiểu:
+
+```text
+TLS
+RBAC
+MFA cho nhân viên nội bộ
+encrypted storage
+secret manager
+audit log
+signed URL
+backup
+rate limiting
+```
+
+---
+
+# 66. Metrics quan trọng
+
+Không chỉ đo CPU/RAM.
+
+Business metrics:
+
+```text
+human_minutes_per_client
+human_minutes_per_document
+automation_rate
+exception_rate
+review_rate
+AI correction rate
+closing_duration
+client_response_time
+clients_per_accountant
+```
+
+Nếu thời gian con người/client không giảm thì automation chưa tạo lợi thế.
+
+---
+
+# 67. MVP 1 — Nền vận hành
+
+Build:
+
+```text
+Tenant
+User
+Client
+Document
+Accounting Case
+Work Queue
+Client Action
+Review
+Audit
+```
+
+Mục tiêu:
+
+> Biến vận hành dịch vụ kế toán thành quy trình có trạng thái.
+
+---
+
+# 68. MVP 2 — Document Intelligence
+
+Thêm:
+
+```text
+XML parsing
+PDF/image extraction
+classification
+duplicate detection
+normalized document
+```
+
+---
+
+# 69. MVP 3 — Accounting Assistance
+
+Thêm:
+
+```text
+chart of accounts
+parties
+rules
+journal draft
+validation
+human review
+```
+
+---
+
+# 70. MVP 4 — Banking
+
+```text
+bank import
+transaction normalization
+matching
+reconciliation queue
+```
+
+---
+
+# 71. MVP 5 — Closing
+
+```text
+monthly closing
+checklist
+blocking rule
+senior approval
+progress
+```
+
+---
+
+# 72. MVP 6 — Portal khách hàng
+
+Chỉ cần:
+
+```text
+status
+documents
+actions
+reports
+```
+
+Internal OS phải ổn trước.
+
+---
+
+# 73. Ví dụ end-to-end: hóa đơn AWS
+
+```text
+1. Khách upload hóa đơn.
+2. Lưu file gốc.
+3. Tính hash.
+4. Check duplicate.
+5. Xác định PURCHASE_INVOICE.
+6. Extract dữ liệu.
+7. Validate tổng tiền.
+8. Tạo Accounting Case.
+9. Match Party = AWS.
+10. Tìm mapping lịch sử/rule.
+11. Gợi ý chi phí cloud.
+12. Tạo Journal Draft.
+13. Validate Nợ = Có.
+14. Risk = LOW.
+15. Đưa vào review queue.
+16. Accountant approve.
+17. Sync/export sang MISA/FAST.
+18. Sau đó bank transaction xuất hiện.
+19. Matching engine tìm payment tương ứng.
+20. Accountant confirm.
+21. Case → RECONCILED.
+22. Closing checklist được cập nhật.
+23. Audit lưu toàn bộ lịch sử.
+```
+
+Nếu không thiếu gì:
+
+```text
+Khách không cần làm gì.
+```
+
+Nếu thiếu:
+
+```text
+Client Action:
+"Vui lòng cung cấp hợp đồng."
+```
+
+---
+
+# 74. Ví dụ end-to-end: giao dịch ngân hàng không rõ
+
+```text
+1. Import bank CSV.
+2. Có transaction 18m chưa match.
+3. Matching engine không tìm được candidate đủ confidence.
+4. Tạo Accounting Case.
+5. Case → NEED_ACCOUNTANT.
+6. Accountant xem nhưng vẫn không rõ.
+7. Tạo Client Action.
+8. Case → WAITING_CLIENT.
+9. Khách trả lời: "Thanh toán freelancer Nguyễn A".
+10. Case tiếp tục.
+11. Phân loại chi phí.
+12. Tạo Journal Draft.
+13. Review.
+14. Recorded.
+15. Reconciled.
+16. Closed.
+```
+
+---
+
+# 75. Cách dev phải tư duy
+
+Mỗi feature phải trả lời được:
+
+```text
+Object nghiệp vụ nào đang di chuyển?
+
+Nó đang ở state nào?
+
+Event gì vừa xảy ra?
+
+Cần quyết định điều gì?
+
+Ai sở hữu quyết định đó?
+
+Rule/code có quyết định được không?
+
+AI chỉ gợi ý hay được tự động?
+
+Có cần human review không?
+
+State tiếp theo là gì?
+
+Audit phải lưu gì?
+```
+
+Nếu chưa trả lời được:
+
+> Chưa nên code.
+
+---
+
+# 76. Product Principle cuối cùng
 
 Sản phẩm không phải:
 
-> "Một phần mềm kế toán mới."
-
-Cũng không phải:
-
-> "Một chatbot AI làm kế toán."
-
-Sản phẩm là:
-
-> **Một công ty dịch vụ kế toán được vận hành như một hệ thống phần mềm hiện đại.**
-
-Phía khách hàng:
-
 ```text
-Simple
-Human
-Reliable
-Clear
+"Phần mềm AI kế toán"
 ```
 
-Phía vận hành:
+Mà là:
+
+> **Một hệ thống kiểm soát toàn bộ workflow của công ty dịch vụ kế toán.**
+
+AI chỉ là một thành phần trong workflow.
+
+---
+
+# 77. Luồng lõi cuối cùng
 
 ```text
-Automated
-Measured
-Traceable
-Exception-driven
-AI-assisted
+SOURCE DATA
+    ↓
+DOCUMENT / TRANSACTION
+    ↓
+ACCOUNTING CASE
+    ↓
+HIỂU NGHIỆP VỤ
+    ↓
+RULE / AI GỢI Ý
+    ↓
+JOURNAL DRAFT
+    ↓
+RISK ROUTING
+    ↓
+HUMAN REVIEW
+    ↓
+GHI NHẬN
+    ↓
+ĐỐI CHIẾU
+    ↓
+CHỐT THÁNG
+    ↓
+BÁO CÁO
+```
+
+Bao quanh toàn bộ:
+
+```text
+Task
+Deadline
+Client Action
+Audit
+Permission
+Metrics
 ```
 
 ---
 
-# 70. Final Architecture
+# 78. Quyết định thiết kế quan trọng nhất
+
+Trong năm đầu:
+
+> **Xây hệ điều hành vận hành công ty dịch vụ kế toán trước.**
+
+Không bắt đầu bằng portal lớn.
+
+Không rebuild MISA.
+
+Không bắt đầu bằng chatbot AI.
+
+Bắt đầu từ workflow thật:
 
 ```text
-                          CUSTOMER
-                              │
-            ┌─────────────────┼─────────────────┐
-            │                 │                 │
-          Zalo              Email             Portal
-            │                 │                 │
-            └─────────────────┼─────────────────┘
-                              ▼
-                       INTAKE LAYER
-                              │
-                              ▼
-                     DOCUMENT PLATFORM
-                              │
-            ┌─────────────────┼─────────────────┐
-            ↓                 ↓                 ↓
-           OCR          CLASSIFICATION       EXTRACTION
-            │                 │                 │
-            └─────────────────┼─────────────────┘
-                              ▼
-                         RULE ENGINE
-                              │
-                              ▼
-                       RECONCILIATION
-                              │
-                              ▼
-                         AI ASSISTANT
-                              │
-                              ▼
-                        RISK ENGINE
-                              │
-                 ┌────────────┴─────────────┐
-                 ↓                          ↓
-              AUTO                     EXCEPTION
-                                            │
-                                            ▼
-                                       ACCOUNTANT
-                                            │
-                                            ▼
-                                     SENIOR REVIEW
-                                            │
-                    ┌───────────────────────┼───────────────────────┐
-                    ↓                       ↓                       ↓
-                 TAX                    REPORTING              CUSTOMER
+Thu thập
+→ Hiểu
+→ Chuẩn bị
+→ Review
+→ Đối chiếu
+→ Chốt
 ```
 
----
+Sau đó mới tự động hóa từng bước.
 
-# 71. Kết luận
-
-Chiến lược không phải tạo thêm nghiệp vụ kế toán mới.
-
-Chiến lược là:
-
-```text
-Lấy nghiệp vụ hiện có
-        ↓
-Chuẩn hóa
-        ↓
-Phân rã
-        ↓
-Automation
-        ↓
-Rule Engine
-        ↓
-AI
-        ↓
-Human Review
-        ↓
-Continuous Improvement
-```
-
-Giá trị lớn nhất nằm ở việc chuyển:
-
-```text
-MANUAL ACCOUNTING SERVICE
-```
-
-thành:
-
-```text
-TECH-ENABLED ACCOUNTING SERVICE
-```
-
-và cuối cùng thành:
-
-```text
-EXCEPTION-DRIVEN ACCOUNTING OPERATION
-```
-
-Khách hàng vẫn mua đúng dịch vụ họ đã hiểu từ trước.
-
-Nhưng công ty vận hành bên trong hoàn toàn khác.
-
-Đó chính là lợi thế cạnh tranh.
+Đây mới là nền tảng để dev code đúng, kế toán kiểm soát được, và business scale được.
